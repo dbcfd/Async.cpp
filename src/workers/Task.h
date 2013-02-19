@@ -4,7 +4,7 @@
 #include <functional>
 #include <future>
 
-namespace quicktcp {
+namespace async_cpp {
 namespace workers {
 
 /**

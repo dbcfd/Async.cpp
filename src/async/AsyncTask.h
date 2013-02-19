@@ -5,14 +5,8 @@
 
 #include <future>
 #include <memory>
-#include <vector>
 
-namespace quicktcp {
-
-namespace workers {
-class Manager;
-}
-
+namespace async_cpp {
 namespace async {
 
 class AsyncResult;

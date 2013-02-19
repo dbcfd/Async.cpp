@@ -7,7 +7,7 @@
 #include <future>
 #include <thread>
 
-namespace quicktcp {
+namespace async_cpp {
 namespace workers {
 
 class Task;

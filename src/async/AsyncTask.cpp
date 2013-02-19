@@ -1,7 +1,7 @@
 #include "async/AsyncTask.h"
 #include "async/AsyncResult.h"
 
-namespace quicktcp {
+namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------

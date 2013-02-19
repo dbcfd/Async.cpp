@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include<thread>
-using namespace quicktcp::workers;
+using namespace async_cpp::workers;
 
 class TestTask : public Task
 {

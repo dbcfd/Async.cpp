@@ -2,7 +2,12 @@
 #include "async/Platform.h"
 #include "async/AsyncTask.h"
 
-namespace quicktcp {
+namespace async_cpp {
+
+namespace workers {
+class IManager;
+}
+
 namespace async {
 
 /**
@@ -15,7 +20,7 @@ public:
      * @param manager Manager to run tasks against
      * @param tasks Vector of tasks that will be run
      */
-    ParallelForEach(std::shared_ptr<workers::Manager> manager, 
+    ParallelForEach(std::shared_ptr<workers::IManager> manager, 
         std::function<PtrAsyncResult(std::shared_ptr<void>)> op, 
         const std::vector<std::shared_ptr<void>>& data);
 
@@ -33,7 +38,7 @@ public:
 
 private:
     std::vector<std::shared_ptr<AsyncTask>> mTasks;
-    std::shared_ptr<workers::Manager> mManager;
+    std::shared_ptr<workers::IManager> mManager;
     std::vector<std::shared_ptr<void>> mData;
 };
 

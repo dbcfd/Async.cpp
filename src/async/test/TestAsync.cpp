@@ -10,7 +10,7 @@
 #pragma warning(disable:4251)
 #include <gtest/gtest.h>
 
-using namespace quicktcp;
+using namespace async_cpp;
 
 TEST(ASYNC_TEST, PARALLEL)
 {

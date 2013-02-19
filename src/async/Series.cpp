@@ -1,13 +1,13 @@
 #include "async/Series.h"
 #include "async/AsyncResult.h"
 
-#include "workers/Manager.h"
+#include "workers/IManager.h"
 
-namespace quicktcp {
+namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-Series::Series(std::shared_ptr<workers::Manager> manager, const std::vector<std::function<PtrAsyncResult(PtrAsyncResult)>>& tasks)
+Series::Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(PtrAsyncResult)>>& tasks)
     : mManager(manager)
 {
     if(!tasks.empty())
@@ -24,7 +24,7 @@ Series::Series(std::shared_ptr<workers::Manager> manager, const std::vector<std:
 }
 
 //------------------------------------------------------------------------------
-Series::Series(std::shared_ptr<workers::Manager> manager, std::function<PtrAsyncResult(PtrAsyncResult)>* tasks, const size_t nbTasks)
+Series::Series(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(PtrAsyncResult)>* tasks, const size_t nbTasks)
     : mManager(manager)
 {
     if(0 != nbTasks)

@@ -1,13 +1,13 @@
 #include "async/Parallel.h"
 #include "async/AsyncResult.h"
 
-#include "workers/Manager.h"
+#include "workers/IManager.h"
 
-namespace quicktcp {
+namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::Manager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks)
+Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks)
     : mManager(manager)
 {
     mTasks.reserve(tasks.size());
@@ -21,7 +21,7 @@ Parallel::Parallel(std::shared_ptr<workers::Manager> manager, const std::vector<
 }
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::Manager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks)
+Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks)
     : mManager(manager)
 {
     mTasks.reserve(nbTasks);

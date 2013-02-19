@@ -4,11 +4,11 @@
 
 #include <functional>
 
-namespace quicktcp {
+namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
-Manager::Manager(const size_t nbWorkers) : mRunning(true), mNbWorkers(nbWorkers)
+Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
 {
     auto workerDoneFunction = [this](Worker* worker) -> void {
         //grab the next task if available, otherwise add our worker to a wait list

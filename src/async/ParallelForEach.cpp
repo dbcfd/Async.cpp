@@ -1,13 +1,13 @@
 #include "async/ParallelForEach.h"
 #include "async/AsyncResult.h"
 
-#include "workers/Manager.h"
+#include "workers/IManager.h"
 
-namespace quicktcp {
+namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-ParallelForEach::ParallelForEach(std::shared_ptr<workers::Manager> manager, 
+ParallelForEach::ParallelForEach(std::shared_ptr<workers::IManager> manager, 
         std::function<PtrAsyncResult(std::shared_ptr<void>)> op, 
         const std::vector<std::shared_ptr<void>>& data)
     : mManager(manager), mData(data)

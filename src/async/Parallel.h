@@ -2,9 +2,12 @@
 #include "async/Platform.h"
 #include "async/AsyncTask.h"
 
-#include <stdarg.h>
+namespace async_cpp {
 
-namespace quicktcp {
+namespace workers {
+class IManager;
+}
+
 namespace async {
 
 /**
@@ -18,14 +21,14 @@ public:
      * @param manager Manager to run tasks against
      * @param tasks Vector of tasks that will be run
      */
-    Parallel(std::shared_ptr<workers::Manager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks);
+    Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks);
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
      * @param tasks Array of tasks that will be run
      * @param nbTasks Number of tasks in array
      */
-    Parallel(std::shared_ptr<workers::Manager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks);
+    Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks);
 
     /**
      * Run the set of tasks in parallel, calling a task when the parallel tasks have completed.
@@ -42,7 +45,7 @@ public:
 
 private:
     std::vector<std::shared_ptr<IAsyncTask>> mTasks;
-    std::shared_ptr<workers::Manager> mManager;
+    std::shared_ptr<workers::IManager> mManager;
 };
 
 //inline implementations
