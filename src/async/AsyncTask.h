@@ -10,7 +10,7 @@ namespace async {
 /**
  * Asynchronous task interface. Provides task interface and methodology to retrieve future
  */
-class IAsyncTask : public workers::Task {
+class ASYNC_API IAsyncTask : public workers::Task {
 public:
     IAsyncTask();
     virtual ~IAsyncTask();
@@ -25,7 +25,7 @@ public:
 /**
  * Implementation of IAsyncTask that does receive forwarded results from other tasks.
  */
-class AsyncTask : public IAsyncTask {
+class ASYNC_API AsyncTask : public IAsyncTask {
 public:
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
@@ -43,7 +43,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class AsyncForwardTask : public IAsyncTask {
+class ASYNC_API AsyncForwardTask : public IAsyncTask {
 public:
     /**
      * Create an asynchronous task that takes in a previous AsyncResult and returns an AsyncResult via a packaged task.
