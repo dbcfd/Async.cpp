@@ -32,7 +32,7 @@ public:
      * Check if this result is an error, throwing a std::runtime_error if it is. If not an error,
      * return the result.
      */
-    std::shared_ptr<void> getOrThrowIfError() const;
+    std::shared_ptr<void> throwOrGet() const;
     /**
      * Throw a std::runtime_error if this result is an error
      */
@@ -54,6 +54,14 @@ public:
      */
     inline const std::string& error() const;
 
+    /**
+     * Return the result as the given type, if not error. Throw if error.
+     * @type Type of return
+     * @return Shared pointer of type
+     */
+    template<class T>
+    std::shared_ptr<T> throwOrAs() const;
+
 private:
     AsyncResult(const AsyncResult& other);
 
@@ -73,6 +81,13 @@ std::shared_ptr<void> AsyncResult::result() const
 const std::string& AsyncResult::error() const
 {
     return mError;
+}
+
+//------------------------------------------------------------------------------
+template<class T>
+std::shared_ptr<T> AsyncResult::throwOrAs() const
+{
+    return std::static_pointer_cast<T>(throwOrGet());
 }
 
 }

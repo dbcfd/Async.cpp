@@ -28,7 +28,7 @@ AsyncResult::~AsyncResult()
 }
 
 //------------------------------------------------------------------------------
-std::shared_ptr<void> AsyncResult::getOrThrowIfError() const
+std::shared_ptr<void> AsyncResult::throwOrGet() const
 {
     throwIfError();
     return mResult;
