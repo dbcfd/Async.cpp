@@ -22,22 +22,9 @@ AsyncResult::AsyncResult()
 }
 
 //------------------------------------------------------------------------------
-AsyncResult::AsyncResult(AsyncResult&& other) : mError(std::move(other.mError)), mResult(std::move(other.mResult))
-{
-
-}
-
-//------------------------------------------------------------------------------
 AsyncResult::~AsyncResult()
 {
 
-}
-
-//------------------------------------------------------------------------------
-const bool AsyncResult::forwardError(std::shared_ptr<AsyncResult> other)
-{
-    other->mError = mError;
-    return wasError();
 }
 
 //------------------------------------------------------------------------------

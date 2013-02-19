@@ -12,15 +12,38 @@ namespace workers {
 
 class Task;
 
+/**
+ * Object which holds a thread to run tasks in, obtaining additional tasks via its taskCompleteFunction if available.
+ */
 class WORKERS_API Worker {
 public:
+    /**
+     * Create a worker (and its underlying thread) to run tasks, with a function to invoke everytime it finishes running a task
+     * @param taskCompleteFunction Function object to invoke when task is finished
+     */
     Worker(std::function<void (Worker*)> taskCompleteFunction);
     virtual ~Worker();
 
+    /**
+     * Set the task for this worker to run. Worker thread will be woken up if it is waiting for a task. The task will not be run until 
+     * the worker thread is able to wake up and invoke the task's perform method.
+     * @param task Task to run. 
+     */
     void runTask(std::shared_ptr<Task> task);
+
+    /**
+     * Shutdown this worker. If a task is waiting to be run, it will be marked as a failure.
+     */
     void shutdown();
 
+    /**
+     * Wait until this worker has created its thread and is ready to receive tasks.
+     */
     inline void waitUntilReady();
+
+    /**
+     * Whether or not this worker is running. If not running, tasks passed to it will be marked as failures.
+     */
     inline const bool isRunning();
 private:
     void run();

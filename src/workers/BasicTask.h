@@ -7,8 +7,15 @@
 namespace quicktcp {
 namespace workers {
 
+/**
+ * Basic task implementationwhich runs a function object.
+ */
 class WORKERS_API BasicTask : public Task {
 public:
+    /**
+     * Create a task to run, which will run a function object
+     * @param functionToRun Function object this task will run
+     */
     BasicTask(std::function<void(void)> functionToRun);
     virtual ~BasicTask();
 

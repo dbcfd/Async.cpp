@@ -6,33 +6,52 @@
 namespace quicktcp {
 namespace async {
 
+/**
+ * Store the result of an asynchronous operation, either as an error, or data.
+ */
 class ASYNC_API AsyncResult {
 public:
     /**
      * Create a result that was an error
+     * @param error String representing error
      */
     AsyncResult(const std::string& error);
     /**
      * Create a result that was valid, with data that will be retrieved later
+     * @param data Shared point to data
      */
     AsyncResult(std::shared_ptr<void> data);
     /**
      * Create a result that was valid, but you don't wish to return a result
      */
     AsyncResult();
-    /**
-     * Move constructor
-     */
-    AsyncResult(AsyncResult&& other);
     
     virtual ~AsyncResult();
 
-    const bool forwardError(std::shared_ptr<AsyncResult> other);
+    /**
+     * Check if this result is an error, throwing a std::runtime_error if it is. If not an error,
+     * return the result.
+     */
     std::shared_ptr<void> getOrThrowIfError() const;
+    /**
+     * Throw a std::runtime_error if this result is an error
+     */
     void throwIfError() const;
+    /**
+     * Indicate whether this result is an error.
+     * @return True if this result is an error
+     */
     const bool wasError() const;
 
+    /**
+     * Return the result held by this object
+     * @return Result held
+     */
     inline std::shared_ptr<void> result() const;
+    /**
+     * Return the string that indicates errors
+     * @return String holding error
+     */
     inline const std::string& error() const;
 
 private:

@@ -77,9 +77,8 @@ void Worker::run()
 
         if(nullptr != taskToRun)
         {
-            taskToRun->perform([this]()->void {
-                mTaskCompleteFunction(this);
-            } );
+            taskToRun->perform([](){});
+            mTaskCompleteFunction(this);
         }
     }
 }

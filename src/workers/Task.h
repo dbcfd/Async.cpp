@@ -7,14 +7,29 @@
 namespace quicktcp {
 namespace workers {
 
+/**
+ * Interface for tasks which will be run by a worker. If a task fails to perform successfully, completion future will be marked as false.
+ */
 class WORKERS_API Task {
 public:
     Task();
     virtual ~Task();
 
+    /**
+     * Retrieve the future associated with this task which indicates when task is complete and whether or not it was successful.
+     * @return Future associated with task
+     */
     inline std::future<bool> getCompletionFuture();
 
-    void perform(std::function<void(void)> priorToCompleteFunction);
+    /**
+     * Perform the behavior of this task, invoking a function after the task complete promise is fulfilled.
+     * @param afterCompleteFunction Function to invoke after task has fulfilled its promise
+     */
+    void perform(std::function<void(void)> afterCompleteFunction);
+
+    /**
+     * Mark this task as a failure by fulfilling its promise with false.
+     */
     void failToPerform();
 
 protected:
