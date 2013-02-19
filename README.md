@@ -20,37 +20,38 @@ Asynchronous library modeled after async.js
 
 ## Examples ##
 Run a set of tasks in series, where the final result is passed to the completion function.
+
     std::function<async::PtrAsyncResult(async::PtrAsyncResult)> opsArray[] = {
         [&runOrder, &runCount](async::PtrAsyncResult res)->async::PtrAsyncResult {
-			if(res.wasError()) return res;
+    		if(res.wasError()) return res;
             runOrder[0] = runCount.fetch_add(1);
             return res;
         },
         [&runOrder, &runCount](async::PtrAsyncResult res)->async::PtrAsyncResult {
-		    if(res.wasError()) return res;
+    	    if(res.wasError()) return res;
             runOrder[1] = runCount.fetch_add(1);
             return res;
         },
         [&runOrder, &runCount](async::PtrAsyncResult res)->async::PtrAsyncResult {
-		    if(res.wasError()) return res;
+    	    if(res.wasError()) return res;
             runOrder[2] = runCount.fetch_add(1);
             return res;
         },
         [&runOrder, &runCount](async::PtrAsyncResult res)->async::PtrAsyncResult {
-		    if(res.wasError()) return res;
+    	    if(res.wasError()) return res;
             runOrder[3] = runCount.fetch_add(1);
             return res;
         },
         [&runOrder, &runCount](async::PtrAsyncResult res)->async::PtrAsyncResult {
-		    if(res.wasError()) return res;
+    	    if(res.wasError()) return res;
             runOrder[4] = runCount.fetch_add(1);
             return PtrAsyncResult(new AsyncResult(std::shared_ptr<void>(new size_t(runCount))));
         }
     };
-
+    
     std::future<async::PtrAsyncResult> seriesFuture = async::Series(manager, opsArray, 5).execute(
         [&runOrder](async::PtrAsyncResult result)->async::PtrAsyncResult {
-		    if(res.wasError()) return res;
+    	    if(res.wasError()) return res;
             runOrder[5] = *(std::shared_pointer_cast<size_t>(result.result()));
             return result;
         } );
