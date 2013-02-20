@@ -3,6 +3,8 @@
 
 #include "workers/IManager.h"
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace async {
 
@@ -10,6 +12,8 @@ namespace async {
 Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks)
     : mManager(manager)
 {
+    assert(nullptr != manager);
+
     mTasks.reserve(tasks.size());
     for(auto func : tasks)
     {
@@ -24,6 +28,8 @@ Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector
 Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks)
     : mManager(manager)
 {
+    assert(nullptr != manager);
+
     mTasks.reserve(nbTasks);
     for(size_t idx = 0; idx < nbTasks; ++idx)
     {

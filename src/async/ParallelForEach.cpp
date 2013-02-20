@@ -3,6 +3,8 @@
 
 #include "workers/IManager.h"
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace async {
 
@@ -12,6 +14,8 @@ ParallelForEach::ParallelForEach(std::shared_ptr<workers::IManager> manager,
         const std::vector<std::shared_ptr<void>>& data)
     : mManager(manager), mData(data)
 {
+    assert(nullptr != manager);
+
     mTasks.reserve(data.size());
     for(auto dataForOp : data)
     {

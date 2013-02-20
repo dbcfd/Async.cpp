@@ -3,6 +3,8 @@
 
 #include "workers/IManager.h"
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace async {
 
@@ -10,6 +12,8 @@ namespace async {
 Series::Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(PtrAsyncResult)>>& tasks)
     : mManager(manager)
 {
+    assert(nullptr != manager);
+
     if(!tasks.empty())
     {
         mTasks.reserve(tasks.size());
@@ -27,6 +31,8 @@ Series::Series(std::shared_ptr<workers::IManager> manager, const std::vector<std
 Series::Series(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(PtrAsyncResult)>* tasks, const size_t nbTasks)
     : mManager(manager)
 {
+    assert(nullptr != manager);
+
     if(0 != nbTasks)
     {
         mTasks.reserve(nbTasks);

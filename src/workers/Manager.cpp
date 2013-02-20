@@ -4,12 +4,16 @@
 
 #include <functional>
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
 Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
 {
+    assert(nbWorkers > 0);
+
     auto workerDoneFunction = [this](Worker* worker) -> void {
         {
             std::unique_lock<std::mutex> lock(mMutex);
@@ -78,6 +82,8 @@ void Manager::waitForTasksToComplete()
 //------------------------------------------------------------------------------
 void Manager::run(std::shared_ptr<Task> task)
 {
+    assert(nullptr != task);
+
     //we want to run this task in a worker if one is available, else, add it to a queue
     if(mRunning)
     {
@@ -95,7 +101,7 @@ void Manager::run(std::shared_ptr<Task> task)
         }
         worker->runTask(task);
     }
-    else if(task != nullptr)
+    else
     {
         task->failToPerform();
     }

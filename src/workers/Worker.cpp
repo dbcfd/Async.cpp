@@ -1,6 +1,8 @@
 #include "workers/Worker.h"
 #include "workers/Task.h"
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace workers {
 
@@ -36,6 +38,8 @@ void Worker::shutdown()
 //------------------------------------------------------------------------------
 void Worker::runTask(std::shared_ptr<Task> task)
 {
+    assert(nullptr != task);
+
     if(mRunning)
     {
         {
@@ -45,7 +49,7 @@ void Worker::runTask(std::shared_ptr<Task> task)
 
         mTaskSignal.notify_all();
     }
-    else if(nullptr != task)
+    else
     {
         task->failToPerform();
         mTaskCompleteFunction(this);

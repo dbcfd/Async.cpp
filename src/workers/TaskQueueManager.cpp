@@ -4,12 +4,16 @@
 
 #include <functional>
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
 TaskQueueManager::TaskQueueManager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
 {
+    assert(nbWorkers > 0);
+
     auto workerDoneFunction = [this](Worker* worker) -> void {
         //grab the next task if available, otherwise add our worker to a wait list
         std::shared_ptr<Task> task;

@@ -1,12 +1,14 @@
 #include "async/AsyncResult.h"
 
+#include <assert.h>
+
 namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
 AsyncResult::AsyncResult(const std::string& error) : mError(error)
 {
-
+    assert(error.size() > 0);
 }
     
 //------------------------------------------------------------------------------
