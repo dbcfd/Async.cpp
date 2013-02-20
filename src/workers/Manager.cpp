@@ -112,7 +112,7 @@ void Manager::waitForTasksToComplete()
     std::unique_lock<std::mutex> lock(mMutex);
 
     mWorkerFinishedSignal.wait(lock, [this]()->bool {
-        return mTasks.empty();
+        return (mWorkers.size() == mNbWorkers) && mTasks.empty();
     } );
 }
 
