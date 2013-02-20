@@ -4,53 +4,31 @@
 #include "workers/IManager.h"
 
 #include <assert.h>
+#include <atomic>
 
 namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
 Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks)
-    : mManager(manager)
+    : mManager(manager), mOps(tasks)
 {
     assert(nullptr != manager);
-
-    mTasks.reserve(tasks.size());
-    for(auto func : tasks)
-    {
-        mTasks.emplace_back(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(
-            [func]()->PtrAsyncResult {
-                return func();
-            } ) ) );
-    }
 }
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks)
+Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)> tasks[], const size_t nbTasks)
     : mManager(manager)
 {
     assert(nullptr != manager);
 
-    mTasks.reserve(nbTasks);
-    for(size_t idx = 0; idx < nbTasks; ++idx)
-    {
-        mTasks.emplace_back(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(
-            [tasks, idx]()->PtrAsyncResult {
-                return tasks[idx]();
-            } ) ) );
-    }
+    mOps.assign(tasks, tasks+nbTasks);
 }
 
 //------------------------------------------------------------------------------
 AsyncFuture Parallel::execute(std::function<PtrAsyncResult(PtrAsyncResult)> onFinishTask)
 {
     std::shared_ptr<std::vector<AsyncFuture>> taskFutures(new std::vector<AsyncFuture>());
-    taskFutures->reserve(mTasks.size());
-
-    for(auto task : mTasks)
-    {
-        taskFutures->push_back(task->getFuture());
-        mManager->run(task);
-    }
 
     std::shared_ptr<AsyncTask> finishTask(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(
         [onFinishTask, taskFutures]()-> PtrAsyncResult {
@@ -75,8 +53,23 @@ AsyncFuture Parallel::execute(std::function<PtrAsyncResult(PtrAsyncResult)> onFi
         }
     ) ) );
 
+    taskFutures->reserve(mOps.size());
+    std::shared_ptr<std::atomic<size_t>> opsRemaining(new std::atomic<size_t>(mOps.size()));
 
-    mManager->run(finishTask);
+    for(auto op : mOps)
+    {
+        auto task = std::shared_ptr<IAsyncTask>(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(std::bind(
+            [op, opsRemaining, finishTask](std::shared_ptr<workers::IManager> mgr)->PtrAsyncResult {
+                auto res = op();
+                if(1 == opsRemaining->fetch_sub(1))
+                {
+                    mgr->run(finishTask);
+                }
+                return res;
+            }, mManager) ) ) );
+        taskFutures->push_back(task->getFuture());
+        mManager->run(task);
+    }
 
     return finishTask->getFuture();  
 }

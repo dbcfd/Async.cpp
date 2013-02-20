@@ -28,7 +28,7 @@ public:
      * @param tasks Array of tasks that will be run
      * @param nbTasks Number of tasks in array
      */
-    Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)>* tasks, const size_t nbTasks);
+    Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)> tasks[], const size_t nbTasks);
 
     /**
      * Run the set of tasks in parallel, calling a task when the parallel tasks have completed.
@@ -44,7 +44,7 @@ public:
     AsyncFuture execute();
 
 private:
-    std::vector<std::shared_ptr<IAsyncTask>> mTasks;
+    std::vector<std::function<PtrAsyncResult(void)>> mOps;
     std::shared_ptr<workers::IManager> mManager;
 };
 

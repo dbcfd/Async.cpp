@@ -37,7 +37,7 @@ public:
     AsyncFuture execute();
 
 private:
-    std::vector<std::shared_ptr<AsyncTask>> mTasks;
+    std::function<PtrAsyncResult(std::shared_ptr<void>)> mOp;
     std::shared_ptr<workers::IManager> mManager;
     std::vector<std::shared_ptr<void>> mData;
 };
