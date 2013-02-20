@@ -181,7 +181,7 @@ TEST(ASYNC_TEST, SERIES_TIMING)
 
     async::Series series(manager, opsArray, 5);
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    std::future<async::PtrAsyncResult> seriesFuture = series.execute([&times, &start](async::PtrAsyncResult result)->async::PtrAsyncResult {
+    auto seriesFuture = series.execute([&times, &start](async::PtrAsyncResult result)->async::PtrAsyncResult {
         times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );

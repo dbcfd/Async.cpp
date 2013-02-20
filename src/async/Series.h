@@ -44,10 +44,10 @@ public:
     AsyncFuture execute();
 
 private:
-    void addTask(std::function<PtrAsyncResult(PtrAsyncResult)> func);
-    void addTask(AsyncFuture forwardedFuture, std::function<PtrAsyncResult(PtrAsyncResult)> func);
+    std::shared_ptr<IAsyncTask> addTask(std::function<PtrAsyncResult(PtrAsyncResult)> func, const size_t nextIndex);
+    std::shared_ptr<IAsyncTask> addTask(AsyncFuture forwardedFuture, std::function<PtrAsyncResult(PtrAsyncResult)> func, const size_t nextIndex);
 
-    std::vector<std::shared_ptr<IAsyncTask>> mTasks;
+    std::shared_ptr<std::vector<std::shared_ptr<IAsyncTask>>> mTasks;
     std::shared_ptr<workers::IManager> mManager;
 };
 
