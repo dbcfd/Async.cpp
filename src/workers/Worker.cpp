@@ -16,6 +16,11 @@ Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(tr
 Worker::~Worker()
 {
     shutdown();
+    std::mutex mutex;
+    std::unique_lock<std::mutex> lock(mutex);
+    mShutdownSignal.wait(lock, [this]()->bool {
+        return (nullptr == mThread);
+    } );
 }
 
 //------------------------------------------------------------------------------
@@ -32,6 +37,8 @@ void Worker::shutdown()
             mTaskToRun->failToPerform();
             mTaskCompleteFunction(this);
         }
+        mThread = nullptr;
+        mShutdownSignal.notify_one();
     }
 }
 

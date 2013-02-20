@@ -47,6 +47,7 @@ private:
     std::mutex mTaskMutex;
     std::shared_ptr<Task> mTaskToRun;
     std::condition_variable mTaskSignal;
+    std::condition_variable mShutdownSignal;
     std::function<void (Worker*)> mTaskCompleteFunction;
     std::atomic<bool> mRunning;
 };
