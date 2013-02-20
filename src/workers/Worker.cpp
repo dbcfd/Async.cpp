@@ -24,18 +24,8 @@ void Worker::shutdown()
     
     if(wasRunning)
     {
-        std::shared_ptr<Task> task;
-        {
-            std::unique_lock<std::mutex> lock(mTaskMutex);
-            task.swap(mTaskToRun);
-        }
         mTaskSignal.notify_all();
         mThread->join();
-        if(nullptr != task)
-        {
-            mTaskCompleteFunction(this);
-            task->failToPerform();
-        }
     }
 }
 
@@ -54,6 +44,7 @@ void Worker::runTask(std::shared_ptr<Task> task)
     else if(nullptr != task)
     {
         task->failToPerform();
+        mTaskCompleteFunction(this);
     }
 }
 

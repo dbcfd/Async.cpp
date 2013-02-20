@@ -12,9 +12,9 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
 {
     auto workerDoneFunction = [this](Worker* worker) -> void {
         //grab the next task if available, otherwise add our worker to a wait list
+        std::shared_ptr<Task> task;
         if(isRunning())
         {
-            std::shared_ptr<Task> task;
             {
                 std::unique_lock<std::mutex> lock(mMutex);
 
@@ -29,14 +29,14 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
                     mTasks.pop();
                 }
             }
-            if(nullptr != task)
-            {
-                worker->runTask(task);
-            }
-            else
-            {
-                mWorkerFinishedSignal.notify_one();
-            }
+        }
+        if(nullptr != task)
+        {
+            worker->runTask(task);
+        }
+        else
+        {
+            mWorkerFinishedSignal.notify_one();
         }
     };
 
@@ -58,12 +58,17 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
 Manager::~Manager()
 {
     shutdown();
+    std::mutex mutex;
+    std::unique_lock<std::mutex> lock(mutex);
+    mShutdownSignal.wait(lock, [this]()->bool {
+        return mWorkers.empty();
+    } );
 }
 
 //------------------------------------------------------------------------------
 void Manager::shutdown()
 {
-    bool wasRunning = !(mRunning.exchange(false));
+    bool wasRunning = mRunning.exchange(false);
 
     if(wasRunning)
     {
@@ -96,6 +101,8 @@ void Manager::shutdown()
             worker->shutdown();
             delete worker;
         }
+
+        mShutdownSignal.notify_all();
     }
 }
 

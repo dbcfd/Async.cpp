@@ -103,17 +103,19 @@ TEST(WORKERS_TEST, TEST_EXCEPTION_TASK)
 class WorkerComplete
 {
 public:
-    WorkerComplete() : hasCompleted(false)
+    WorkerComplete() : hasCompleted(false), wasRunning(true)
     {
 
     }
 
-    void complete()
+    void complete(const bool running)
     {
         hasCompleted = true;
+        wasRunning = running;
     }
 
     bool hasCompleted;
+    bool wasRunning;
 };
 
 TEST(WORKERS_TEST, TEST_WORKER)
@@ -121,7 +123,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
     {
         //setup worker
         WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(); };
+        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
         Worker worker(completeFunction);
         worker.waitUntilReady();
 
@@ -133,6 +135,10 @@ TEST(WORKERS_TEST, TEST_WORKER)
 
         //check that task was run
         ASSERT_TRUE(task1Future.get());
+
+        //wait for worker to finish
+        worker.shutdown();
+
         ASSERT_TRUE(workerComplete.hasCompleted);
 
         //worker should shutdown and cleanup correctly
@@ -141,7 +147,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
     {
         //setup worker
         WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(); };
+        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
         Worker worker(completeFunction);
         worker.waitUntilReady();
 
@@ -152,14 +158,15 @@ TEST(WORKERS_TEST, TEST_WORKER)
         std::future<bool> task1Future = task1->getCompletionFuture();
         task1Future.wait();
 
-        //task may or may not be run, dependend on when wakeup occurs compared to shutdown
+        //shutdown after run, task gets run
+        ASSERT_TRUE(task1Future.get());
         ASSERT_TRUE(workerComplete.hasCompleted);
     }
 
     {
         //setup worker
         WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(); };
+        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
         Worker worker(completeFunction);
         worker.waitUntilReady();
 
@@ -172,7 +179,9 @@ TEST(WORKERS_TEST, TEST_WORKER)
 
         //we will fail to run task, which means worker will fail to look for another task
         ASSERT_FALSE(task1Future.get());
-        ASSERT_FALSE(workerComplete.hasCompleted);
+        //worker was shutdown before run, complete will be marked as false
+        ASSERT_TRUE(workerComplete.hasCompleted);
+        ASSERT_FALSE(workerComplete.wasRunning);
     }
 }
 

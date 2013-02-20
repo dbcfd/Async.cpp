@@ -54,6 +54,7 @@ protected:
 
     std::mutex mMutex;
     std::condition_variable mWorkerFinishedSignal;
+    std::condition_variable mShutdownSignal;
 
     std::queue< std::shared_ptr<Task> > mTasks;
 
