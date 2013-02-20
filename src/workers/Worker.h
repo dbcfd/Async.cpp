@@ -37,11 +37,6 @@ public:
     void shutdown();
 
     /**
-     * Wait until this worker has created its thread and is ready to receive tasks.
-     */
-    inline void waitUntilReady();
-
-    /**
      * Whether or not this worker is running. If not running, tasks passed to it will be marked as failures.
      */
     inline const bool isRunning();
@@ -49,8 +44,6 @@ private:
     void run();
 
     std::unique_ptr<std::thread> mThread;
-    std::promise<bool> mReadyForWorkPromise;
-    std::future<bool> mReadyForWorkFuture;
     std::mutex mTaskMutex;
     std::shared_ptr<Task> mTaskToRun;
     std::condition_variable mTaskSignal;
@@ -59,12 +52,6 @@ private:
 };
 
 //inline implementations
-//------------------------------------------------------------------------------
-void Worker::waitUntilReady()
-{
-     mReadyForWorkFuture.wait();
-}
-
 //------------------------------------------------------------------------------
 const bool Worker::isRunning()
 {

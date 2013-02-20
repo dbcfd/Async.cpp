@@ -14,16 +14,16 @@ namespace workers {
 class Worker;
 
 /**
- * Manager of a set of workers, which are used to run tasks. If no workers are available, thread attempting to run task is blocked till workers are available
+ * Manager of a set of workers, which are used to run tasks. If no workers are available, tasks are queue'd.
  */
-class WORKERS_API Manager : public IManager {
+class WORKERS_API TaskQueueManager : public IManager {
 public:
     /**
      * Create a worker with a set number of workers, which will run tasks as they become available.
      * @param nbWorkers Number of workers to create and manager
      */
-    Manager(const size_t nbWorkers);
-    ~Manager();
+    TaskQueueManager(const size_t nbWorkers);
+    ~TaskQueueManager();
 
     /**
      * Run a task on the first available worker, queueing if none are available.
@@ -56,12 +56,14 @@ protected:
     std::condition_variable mWorkerFinishedSignal;
     std::condition_variable mShutdownSignal;
 
+    std::queue< std::shared_ptr<Task> > mTasks;
+
     std::atomic<bool> mRunning;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-const bool Manager::isRunning()
+const bool TaskQueueManager::isRunning()
 {
     return mRunning;
 }

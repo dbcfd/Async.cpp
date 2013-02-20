@@ -19,7 +19,7 @@ public:
      * Retrieve the future associated with this task which indicates when task is complete and whether or not it was successful.
      * @return Future associated with task
      */
-    inline std::future<bool> getCompletionFuture();
+    inline bool wasCompletedSuccessfully();
 
     /**
      * Perform the behavior of this task, invoking a function after the task complete promise is fulfilled.
@@ -37,13 +37,14 @@ protected:
 
 private:
     std::promise<bool> mTaskCompletePromise;
+    std::future<bool> mTaskCompleteFuture;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-std::future<bool> Task::getCompletionFuture()
+bool Task::wasCompletedSuccessfully()
 {
-    return mTaskCompletePromise.get_future();
+    return mTaskCompleteFuture.get();
 }
 
 }

@@ -1,4 +1,4 @@
-#include "workers/Manager.h"
+#include "workers/TaskQueueManager.h"
 #include "workers/Worker.h"
 #include "workers/Task.h"
 
@@ -8,14 +8,40 @@ namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
-Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
+TaskQueueManager::TaskQueueManager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
 {
     auto workerDoneFunction = [this](Worker* worker) -> void {
+        //grab the next task if available, otherwise add our worker to a wait list
+        std::shared_ptr<Task> task;
+        if(isRunning())
         {
-            std::unique_lock<std::mutex> lock(mMutex);
+            {
+                std::unique_lock<std::mutex> lock(mMutex);
+
+                if(mTasks.empty())
+                {
+                    mWorkers.push(worker);
+                }
+                else
+                {
+                    //task available, run it
+                    task.swap(mTasks.front());
+                    mTasks.pop();
+                }
+            }
+        }
+        else
+        {
             mWorkers.push(worker);
         }
-        mWorkerFinishedSignal.notify_one();
+        if(nullptr != task)
+        {
+            worker->runTask(task);
+        }
+        else
+        {   
+            mWorkerFinishedSignal.notify_one();
+        }
     };
 
     std::vector<Worker*> workers;
@@ -27,7 +53,7 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
 }
 
 //------------------------------------------------------------------------------
-Manager::~Manager()
+TaskQueueManager::~TaskQueueManager()
 {
     shutdown();
     std::mutex mutex;
@@ -38,19 +64,32 @@ Manager::~Manager()
 }
 
 //------------------------------------------------------------------------------
-void Manager::shutdown()
+void TaskQueueManager::shutdown()
 {
     bool wasRunning = mRunning.exchange(false);
 
     if(wasRunning)
     {
+        std::queue< std::shared_ptr<Task> > tasks;
         {
             std::unique_lock<std::mutex> lock(mMutex);
+
+            //clear out tasks
+            {
+                std::queue< std::shared_ptr<Task> > empty;
+                std::swap(empty, mTasks);
+            }
 
             //wait for all running tasks to finish
             mWorkerFinishedSignal.wait(lock, [this]()->bool {
                 return mWorkers.size() == mNbWorkers;
             } );
+        }
+
+        while(!tasks.empty())
+        {
+            run(tasks.front());
+            tasks.pop();
         }
 
         while(!mWorkers.empty())
@@ -66,34 +105,40 @@ void Manager::shutdown()
 }
 
 //------------------------------------------------------------------------------
-void Manager::waitForTasksToComplete()
+void TaskQueueManager::waitForTasksToComplete()
 {
     std::unique_lock<std::mutex> lock(mMutex);
 
     mWorkerFinishedSignal.wait(lock, [this]()->bool {
-        return (mWorkers.size() == mNbWorkers);
+        return (mWorkers.size() == mNbWorkers) && mTasks.empty();
     } );
 }
 
 //------------------------------------------------------------------------------
-void Manager::run(std::shared_ptr<Task> task)
+void TaskQueueManager::run(std::shared_ptr<Task> task)
 {
     //we want to run this task in a worker if one is available, else, add it to a queue
-    if(mRunning)
+    if(isRunning())
     {
         Worker* worker = nullptr;
         {
             std::unique_lock<std::mutex> lock(mMutex);
-
-            mWorkerFinishedSignal.wait(lock, [this]()->bool {
-                return !mWorkers.empty();
-            } );
-
-            //worker available, grab it, and run task
-            worker = mWorkers.front();
-            mWorkers.pop();
+            if(mWorkers.empty())
+            {
+                //no workers available, queue the task
+                mTasks.push(task);
+            }
+            else
+            {
+                //worker available, grab it, and run task
+                worker = mWorkers.front();
+                mWorkers.pop();
+            }
         }
-        worker->runTask(task);
+        if(nullptr != worker)
+        {
+            worker->runTask(task);
+        }
     }
     else if(task != nullptr)
     {

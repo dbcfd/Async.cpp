@@ -7,7 +7,6 @@ namespace workers {
 //------------------------------------------------------------------------------
 Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(true), mTaskCompleteFunction(taskCompleteFunction)
 {
-    mReadyForWorkFuture = mReadyForWorkPromise.get_future();
     mThread = std::unique_ptr<std::thread>(new std::thread(&Worker::run, this));
 }
 
@@ -26,13 +25,18 @@ void Worker::shutdown()
     {
         mTaskSignal.notify_all();
         mThread->join();
+        if(nullptr != mTaskToRun)
+        {
+            mTaskToRun->failToPerform();
+            mTaskCompleteFunction(this);
+        }
     }
 }
 
 //------------------------------------------------------------------------------
 void Worker::runTask(std::shared_ptr<Task> task)
 {
-    if(isRunning())
+    if(mRunning)
     {
         {
             std::unique_lock<std::mutex> lock(mTaskMutex);
@@ -51,16 +55,15 @@ void Worker::runTask(std::shared_ptr<Task> task)
 //------------------------------------------------------------------------------
 void Worker::run()
 {
-    mReadyForWorkPromise.set_value(true);
-
-    while(isRunning())
+    while(mRunning)
     {
         std::shared_ptr<Task> taskToRun;
         {
             std::unique_lock<std::mutex> lock(mTaskMutex);
 
+            //wait until we have a task, or we're not running
             mTaskSignal.wait(lock, [this]()->bool {
-                return (nullptr != mTaskToRun) || !isRunning();
+                return (nullptr != mTaskToRun) || (mRunning == false);
             } );
 
             taskToRun.swap(mTaskToRun);
