@@ -48,6 +48,7 @@ private:
     std::shared_ptr<Task> mTaskToRun;
     std::condition_variable mTaskSignal;
     std::condition_variable mShutdownSignal;
+    std::condition_variable mWorkerReadySignal;
     std::function<void (Worker*)> mTaskCompleteFunction;
     std::atomic<bool> mRunning;
 };

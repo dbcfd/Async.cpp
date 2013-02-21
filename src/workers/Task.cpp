@@ -4,7 +4,7 @@ namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
-Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.get_future())
+Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.get_future()), mHasFulfilledPromise(false)
 {
 
 }
@@ -12,19 +12,16 @@ Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.
 //------------------------------------------------------------------------------
 Task::~Task()
 {
-    try {
-        //attempt to fail the task, which sets the future to false
-        failToPerform();
-    }
-    catch(std::future_error&)
+    if(!mHasFulfilledPromise)
     {
-        //task was successfully performed
+        failToPerform();
     }
 }
 
 //------------------------------------------------------------------------------
 void Task::failToPerform()
 {
+    mHasFulfilledPromise = true;
     mTaskCompletePromise.set_value(false);
 }
 
@@ -42,6 +39,7 @@ void Task::perform(std::function<void(void)> completeFunction)
         
     }
 
+    mHasFulfilledPromise = true;
     mTaskCompletePromise.set_value(successful);
     completeFunction();
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "workers/Platform.h"
 
+#include <atomic>
 #include <functional>
 #include <future>
 
@@ -16,8 +17,8 @@ public:
     virtual ~Task();
 
     /**
-     * Retrieve the future associated with this task which indicates when task is complete and whether or not it was successful.
-     * @return Future associated with task
+     * Wait for this task to complete, returning whether or not the task was completed.
+     * @return True if task completed successfully
      */
     inline bool wasCompletedSuccessfully();
 
@@ -36,6 +37,7 @@ protected:
     virtual void performSpecific() = 0;
 
 private:
+    std::atomic<bool> mHasFulfilledPromise;
     std::promise<bool> mTaskCompletePromise;
     std::future<bool> mTaskCompleteFuture;
 };

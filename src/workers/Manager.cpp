@@ -15,11 +15,38 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
     assert(nbWorkers > 0);
 
     auto workerDoneFunction = [this](Worker* worker) -> void {
+        //grab the next task if available, otherwise add our worker to a wait list
+        std::shared_ptr<Task> task;
+        if(isRunning())
+        {
+            {
+                std::unique_lock<std::mutex> lock(mMutex);
+
+                if(mTasks.empty())
+                {
+                    mWorkers.push(worker);
+                }
+                else
+                {
+                    //task available, run it
+                    task.swap(mTasks.front());
+                    mTasks.pop();
+                }
+            }
+        }
+        else
         {
             std::unique_lock<std::mutex> lock(mMutex);
             mWorkers.push(worker);
         }
-        mWorkerFinishedSignal.notify_one();
+        if(nullptr != task)
+        {
+            worker->runTask(task);
+        }
+        else
+        {   
+            mWorkerFinishedSignal.notify_one();
+        }
     };
 
     std::vector<Worker*> workers;
@@ -48,13 +75,26 @@ void Manager::shutdown()
 
     if(wasRunning)
     {
+        std::queue< std::shared_ptr<Task> > tasks;
         {
             std::unique_lock<std::mutex> lock(mMutex);
+
+            //clear out tasks
+            {
+                std::queue< std::shared_ptr<Task> > empty;
+                std::swap(empty, mTasks);
+            }
 
             //wait for all running tasks to finish
             mWorkerFinishedSignal.wait(lock, [this]()->bool {
                 return mWorkers.size() == mNbWorkers;
             } );
+        }
+
+        while(!tasks.empty())
+        {
+            run(tasks.front());
+            tasks.pop();
         }
 
         while(!mWorkers.empty())
@@ -75,7 +115,7 @@ void Manager::waitForTasksToComplete()
     std::unique_lock<std::mutex> lock(mMutex);
 
     mWorkerFinishedSignal.wait(lock, [this]()->bool {
-        return (mWorkers.size() == mNbWorkers);
+        return (mWorkers.size() == mNbWorkers) && mTasks.empty();
     } );
 }
 
@@ -85,21 +125,27 @@ void Manager::run(std::shared_ptr<Task> task)
     assert(nullptr != task);
 
     //we want to run this task in a worker if one is available, else, add it to a queue
-    if(mRunning)
+    if(isRunning())
     {
         Worker* worker = nullptr;
         {
             std::unique_lock<std::mutex> lock(mMutex);
-
-            mWorkerFinishedSignal.wait(lock, [this]()->bool {
-                return !mWorkers.empty();
-            } );
-
-            //worker available, grab it, and run task
-            worker = mWorkers.front();
-            mWorkers.pop();
+            if(mWorkers.empty())
+            {
+                //no workers available, queue the task
+                mTasks.push(std::move(task));
+            }
+            else
+            {
+                //worker available, grab it, and run task
+                worker = std::move(mWorkers.front());
+                mWorkers.pop();
+            }
         }
-        worker->runTask(task);
+        if(nullptr != worker)
+        {
+            worker->runTask(task);
+        }
     }
     else
     {

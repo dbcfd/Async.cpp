@@ -7,9 +7,14 @@ namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
-Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(true), mTaskCompleteFunction(taskCompleteFunction)
+Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(false), mTaskCompleteFunction(taskCompleteFunction)
 {
     mThread = std::unique_ptr<std::thread>(new std::thread(&Worker::run, this));
+    std::mutex mutex;
+    std::unique_lock<std::mutex> lock(mutex);
+    mWorkerReadySignal.wait(lock, [this]()->bool {
+        return (mRunning == true);
+    } );
 }
 
 //------------------------------------------------------------------------------
@@ -66,11 +71,13 @@ void Worker::runTask(std::shared_ptr<Task> task)
 //------------------------------------------------------------------------------
 void Worker::run()
 {
+    mRunning.exchange(true);
     while(mRunning)
     {
         std::shared_ptr<Task> taskToRun;
         {
             std::unique_lock<std::mutex> lock(mTaskMutex);
+            mWorkerReadySignal.notify_all();
 
             //wait until we have a task, or we're not running
             mTaskSignal.wait(lock, [this]()->bool {
