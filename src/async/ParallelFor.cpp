@@ -1,4 +1,4 @@
-#include "async/ParallelForEach.h"
+#include "async/ParallelFor.h"
 #include "async/AsyncResult.h"
 
 #include "workers/IManager.h"
@@ -10,18 +10,18 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-ParallelForEach::ParallelForEach(std::shared_ptr<workers::IManager> manager, 
+ParallelFor::ParallelFor(std::shared_ptr<workers::IManager> manager, 
         std::function<AsyncResult(std::shared_ptr<void>)> op, 
-        const std::vector<std::shared_ptr<void>>& data)
-    : mManager(manager), mData(data), mOp(op)
+        const size_t nbTimes)
+    : mManager(manager), mOp(op), mNbTimes(nbTimes)
 {
     assert(nullptr != manager);
-    assert(!data.empty());
+    assert(0 < nbTimes);
     
 }
 
 //------------------------------------------------------------------------------
-AsyncFuture ParallelForEach::execute(std::function<AsyncResult(AsyncResult&)> onFinishOp)
+AsyncFuture ParallelFor::execute(std::function<AsyncResult(AsyncResult&)> onFinishOp)
 {
     std::shared_ptr<AsyncTerminalTask> finishTask(new AsyncTerminalTask(std::function<AsyncResult(AsyncResult&)>(
         [onFinishOp](AsyncResult& input)-> AsyncResult {
@@ -37,12 +37,13 @@ AsyncFuture ParallelForEach::execute(std::function<AsyncResult(AsyncResult&)> on
         }
     ) ) );
 
-    std::shared_ptr<std::atomic<size_t>> opsRemaining(new std::atomic<size_t>(mData.size()));
+    std::shared_ptr<std::atomic<size_t>> opsRemaining(new std::atomic<size_t>(mNbTimes));
 
-    for(auto data : mData)
+    for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
         std::function<void(void)> func = std::bind(
-            [data, opsRemaining, finishTask](std::function<AsyncResult(std::shared_ptr<void>)> op, std::shared_ptr<workers::IManager> mgr)->void {
+            [idx, opsRemaining, finishTask](std::function<AsyncResult(std::shared_ptr<void>)> op, std::shared_ptr<workers::IManager> mgr)->void {
+                std::shared_ptr<void> data(new size_t(idx));
                 auto res = op(data);
                 if(res.wasError())
                 {
@@ -61,9 +62,9 @@ AsyncFuture ParallelForEach::execute(std::function<AsyncResult(AsyncResult&)> on
 }
 
 //------------------------------------------------------------------------------
-AsyncFuture ParallelForEach::execute()
+AsyncFuture ParallelFor::execute()
 {
-    return execute([](AsyncResult& input)->AsyncResult { return std::move(input); });
+    return execute([](AsyncResult& input)->AsyncResult { return std::move(input); } );
 }
 
 }

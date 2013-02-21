@@ -5,19 +5,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-IAsyncTask::IAsyncTask()
-{
-
-}
-
-//------------------------------------------------------------------------------
-IAsyncTask::~IAsyncTask()
-{
-
-}
-
-//------------------------------------------------------------------------------
-AsyncTask::AsyncTask(std::packaged_task<PtrAsyncResult(void)> generateResult)
+AsyncTask::AsyncTask(std::function<void(void)> generateResult)
     : mGenerateResultFunc(std::move(generateResult))
 {
 
@@ -30,9 +18,20 @@ void AsyncTask::performSpecific()
 }
 
 //------------------------------------------------------------------------------
-AsyncForwardTask::AsyncForwardTask(AsyncFuture forwardedFuture, 
-                                   std::packaged_task<PtrAsyncResult(PtrAsyncResult)> generateResult)
-    : mForwardedFuture(std::move(forwardedFuture)), mGenerateResultFunc(std::move(generateResult))
+IForwardingTask::IForwardingTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
+IForwardingTask::~IForwardingTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
+AsyncForwardTask::AsyncForwardTask(std::function<void(AsyncResult&)> generateResult)
+    : mGenerateResultFunc(std::move(generateResult))
 {
 
 }
@@ -40,7 +39,19 @@ AsyncForwardTask::AsyncForwardTask(AsyncFuture forwardedFuture,
 //------------------------------------------------------------------------------
 void AsyncForwardTask::performSpecific()
 {
-    mGenerateResultFunc(std::move(mForwardedFuture.get()));
+    mGenerateResultFunc(mForwardedResult);
+}
+
+//------------------------------------------------------------------------------
+AsyncTerminalTask::AsyncTerminalTask(std::function<AsyncResult(AsyncResult&)> generateResult) : mGenerateResultFunc(std::move(generateResult))
+{
+
+}
+
+//------------------------------------------------------------------------------
+void AsyncTerminalTask::performSpecific()
+{
+    mPromise.set_value(mGenerateResultFunc(std::move(mForwardedResult)));
 }
 
 }

@@ -11,18 +11,20 @@ class IManager;
 namespace async {
 
 /**
- * Perform an operation in parallel against all data in a vector, optionally calling a function to examine all results once parallel operations are complete.
+ * Perform an operation in parallel for a number of times, optionally calling a function to examine all results once parallel 
+ * operations are complete. Each task will be passed an index as data.
  */
-class ASYNC_API ParallelForEach {
+class ASYNC_API ParallelFor {
 public:
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
-     * @param tasks Vector of tasks that will be run
+     * @param op Operation to run in parallel for a number of times
+     * @param nbTimes Number of times to run operation for
      */
-    ParallelForEach(std::shared_ptr<workers::IManager> manager, 
+    ParallelFor(std::shared_ptr<workers::IManager> manager, 
         std::function<AsyncResult(std::shared_ptr<void>)> op, 
-        const std::vector<std::shared_ptr<void>>& data);
+        const size_t nbTimes);
 
     /**
      * Run the operation across the set of data, invoking a task with the result of the data
@@ -39,7 +41,7 @@ public:
 private:
     std::function<AsyncResult(std::shared_ptr<void>)> mOp;
     std::shared_ptr<workers::IManager> mManager;
-    std::vector<std::shared_ptr<void>> mData;
+    size_t mNbTimes;
 };
 
 //inline implementations

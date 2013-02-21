@@ -10,76 +10,69 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(void)>>& tasks)
+Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncResult(void)>>& tasks)
     : mManager(manager), mOps(tasks)
 {
     assert(nullptr != manager);
+    assert(!tasks.empty());
 }
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(void)> tasks[], const size_t nbTasks)
+Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<AsyncResult(void)> tasks[], const size_t nbTasks)
     : mManager(manager)
 {
     assert(nullptr != manager);
+    assert(nullptr != tasks);
 
     mOps.assign(tasks, tasks+nbTasks);
+
+    assert(!mOps.empty());
 }
 
 //------------------------------------------------------------------------------
-AsyncFuture Parallel::execute(std::function<PtrAsyncResult(PtrAsyncResult)> onFinishTask)
+AsyncFuture Parallel::execute(std::function<AsyncResult(AsyncResult&)> onFinishOp)
 {
-    std::shared_ptr<std::vector<AsyncFuture>> taskFutures(new std::vector<AsyncFuture>());
-
-    std::shared_ptr<AsyncTask> finishTask(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(
-        [onFinishTask, taskFutures]()-> PtrAsyncResult {
-            PtrAsyncResult result(new AsyncResult());
-            for(AsyncFuture& taskFuture : (*taskFutures))
-            {
-                PtrAsyncResult taskResult(taskFuture.get());
-                if(taskResult->wasError() && !result->wasError())
-                {
-                    result = std::move(taskResult);
-                }
-            }
+    std::shared_ptr<AsyncTerminalTask> finishTask(new AsyncTerminalTask(std::function<AsyncResult(AsyncResult&)>(
+        [onFinishOp](AsyncResult& input)-> AsyncResult {
             try 
             {
-                result = onFinishTask(std::move(result));
+                input = std::move(onFinishOp(std::move(input)));
             }
             catch(...)
             {
-                result = PtrAsyncResult(new AsyncResult("Error in function invoked on finish"));
+                input = std::move(AsyncResult("Error in function invoked on finish"));
             }
-            return result;
+            return input;
         }
     ) ) );
 
-    taskFutures->reserve(mOps.size());
     std::shared_ptr<std::atomic<size_t>> opsRemaining(new std::atomic<size_t>(mOps.size()));
 
     for(auto op : mOps)
     {
-        auto task = std::shared_ptr<IAsyncTask>(new AsyncTask(std::packaged_task<PtrAsyncResult(void)>(std::bind(
-            [op, opsRemaining, finishTask](std::shared_ptr<workers::IManager> mgr)->PtrAsyncResult {
+        std::function<void(void)> func = std::bind(
+            [op, opsRemaining, finishTask](std::shared_ptr<workers::IManager> mgr)->void {
                 auto res = op();
+                if(res.wasError())
+                {
+                    finishTask->forward(res);
+                }
                 if(1 == opsRemaining->fetch_sub(1))
                 {
                     mgr->run(finishTask);
                 }
-                return res;
-            }, mManager) ) ) );
-        taskFutures->push_back(task->getFuture());
+            }, mManager);
+        auto task = std::shared_ptr<AsyncTask>(new AsyncTask(func) );
         mManager->run(task);
     }
 
-    return finishTask->getFuture();  
+    return finishTask->future();  
 }
 
 //------------------------------------------------------------------------------
 AsyncFuture Parallel::execute()
 {
-    return execute([](PtrAsyncResult in)->PtrAsyncResult {
-        return in;
-    } );
+    return execute([](AsyncResult& in)->AsyncResult { return std::move(in); } );
 }
 
 }

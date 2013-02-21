@@ -63,8 +63,6 @@ public:
     std::shared_ptr<T> throwOrAs() const;
 
 private:
-    AsyncResult(const AsyncResult& other);
-
     std::string mError;
     std::shared_ptr<void> mResult;
 

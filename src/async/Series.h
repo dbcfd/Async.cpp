@@ -1,6 +1,8 @@
 #pragma once
 #include "async/Platform.h"
-#include "async/AsyncTask.h"
+#include "async/Async.h"
+
+#include <functional>
 
 namespace async_cpp {
 
@@ -9,6 +11,8 @@ class IManager;
 }
 
 namespace async {
+
+class AsyncTerminalTask;
 
 /**
  * Run a set of tasks in series using a manager, optionally executing a task when the set of parallel tasks is complete.
@@ -19,23 +23,23 @@ public:
     /**
      * Create a series task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
-     * @param tasks Vector of tasks that will be run
+     * @param ops Vector of tasks that will be run
      */
-    Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<PtrAsyncResult(PtrAsyncResult)>>& tasks);
+    Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncResult(AsyncResult&)>>& ops);
     /**
      * Create a series task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
-     * @param tasks Array of tasks that will be run
-     * @param nbTasks Number of tasks in array
+     * @param ops Array of operations that will be run
+     * @param nbOps Number of operations in array
      */
-    Series(std::shared_ptr<workers::IManager> manager, std::function<PtrAsyncResult(PtrAsyncResult)>* tasks, const size_t nbTasks);
+    Series(std::shared_ptr<workers::IManager> manager, std::function<AsyncResult(AsyncResult&)>* ops, const size_t nbOps);
 
     /**
      * Run the set of tasks in series, calling a task when the series tasks have completed.
      * @param onFinishTask Task to run when series tasks are complete
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    AsyncFuture execute(std::function<PtrAsyncResult(PtrAsyncResult)> onFinishTask);
+    AsyncFuture execute(std::function<AsyncResult(AsyncResult&)> onFinishTask);
 
     /**
      * Run the set of tasks in series
@@ -44,10 +48,8 @@ public:
     AsyncFuture execute();
 
 private:
-    std::shared_ptr<IAsyncTask> addTask(std::function<PtrAsyncResult(PtrAsyncResult)> func, const size_t nextIndex);
-    std::shared_ptr<IAsyncTask> addTask(AsyncFuture forwardedFuture, std::function<PtrAsyncResult(PtrAsyncResult)> func, const size_t nextIndex);
-
-    std::shared_ptr<std::vector<std::shared_ptr<IAsyncTask>>> mTasks;
+    std::vector<std::function<AsyncResult(AsyncResult&)>> mOperations;
+    std::shared_ptr<AsyncTerminalTask> mTerminalTask;
     std::shared_ptr<workers::IManager> mManager;
 };
 
