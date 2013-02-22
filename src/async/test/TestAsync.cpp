@@ -238,8 +238,8 @@ TEST(ASYNC_TEST, PARALLEL_FOREACH)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](std::shared_ptr<void> data)->AsyncResult {
-        std::shared_ptr<int> index = std::static_pointer_cast<int>(data);
+    auto func = [&times](std::shared_ptr<const void> data)->AsyncResult {
+        std::shared_ptr<const int> index = std::static_pointer_cast<const int>(data);
         times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
