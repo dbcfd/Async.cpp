@@ -40,6 +40,12 @@ public:
      * Wait for all tasks running or queued to complete.
      */
     virtual void waitForTasksToComplete();
+    
+    /**
+     * Size indicating best possible chunk size for a large set of threads.
+     * @return Best possible size for thread chunk
+     */
+    virtual const size_t chunkSize();
 
     /**
      * Flag indicating whether this manager is running. If not running, any tasks passed to it will be marked as failing to complete.

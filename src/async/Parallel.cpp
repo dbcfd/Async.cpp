@@ -48,8 +48,25 @@ AsyncFuture Parallel::execute(std::function<AsyncResult(AsyncResult&)> onFinishO
 
     std::shared_ptr<std::atomic<size_t>> opsRemaining(new std::atomic<size_t>(mOps.size()));
 
+    size_t chunk = 0;
+    std::vector<std::shared_ptr<workers::Task>> runningTasks;
     for(auto op : mOps)
     {
+        if(0 == chunk)
+        {
+            chunk = mManager->chunkSize();
+            runningTasks.reserve(chunk);
+        }
+        if(runningTasks.size() == chunk)
+        {
+            for(auto task : runningTasks)
+            {
+                task->wasCompletedSuccessfully();
+            }
+            runningTasks.clear();
+            chunk = mManager->chunkSize();
+            runningTasks.reserve(chunk);
+        }
         std::function<void(void)> func = std::bind(
             [op, opsRemaining, finishTask](std::shared_ptr<workers::IManager> mgr)->void {
                 auto res = op();
@@ -63,6 +80,7 @@ AsyncFuture Parallel::execute(std::function<AsyncResult(AsyncResult&)> onFinishO
                 }
             }, mManager);
         auto task = std::shared_ptr<AsyncTask>(new AsyncTask(func) );
+        runningTasks.emplace_back(task);
         mManager->run(task);
     }
 

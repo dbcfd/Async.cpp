@@ -406,3 +406,73 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER)
 
     manager->shutdown();
 }
+
+TEST(ASYNC_TEST, OVERLOAD_MANAGER_PARALLEL)
+{
+    size_t nbTasks = 5;
+    std::shared_ptr<workers::Manager> manager(new workers::Manager(3));
+    std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
+
+    auto func = [&times](std::shared_ptr<void> data)->AsyncResult {
+        auto index = std::static_pointer_cast<size_t>(data);
+        times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
+            new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
+            );
+        return AsyncResult();
+    };
+
+    auto parallel5 = ParallelFor(manager,
+        [](std::shared_ptr<void> data)->AsyncResult {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    return AsyncResult();
+        }, 5).execute();
+
+    auto parallel25 = ParallelFor(manager,
+        [](std::shared_ptr<void> data)->AsyncResult {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return AsyncResult();
+        }, 25).execute();
+
+    auto parallelTimes = ParallelFor(manager, func, nbTasks).execute(
+        [&times](AsyncResult& res)->AsyncResult {
+            if(!res.wasError())
+            {
+                times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
+                    new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
+                    );
+            }
+            return std::move(res);
+        } );
+
+
+    std::function<AsyncResult()> ops[] = {
+        [&parallel5]()->AsyncResult {
+            return parallel5.get();
+        },
+        [&parallel25]()->AsyncResult {
+            return parallel25.get();
+        }, 
+        []()->AsyncResult {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            return AsyncResult();
+        },
+        []()->AsyncResult {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            return AsyncResult();
+        },
+        [&parallelTimes]()->AsyncResult {
+            return parallelTimes.get();
+        }
+    };
+
+    auto result = Parallel(manager, ops, 5).execute();
+
+    ASSERT_NO_THROW(result.get().throwIfError());
+
+    for(size_t idx = 0; idx < nbTasks; ++idx)
+    {
+        ASSERT_LE(times[idx]->time_since_epoch().count(), times[nbTasks]->time_since_epoch().count());
+    }
+
+    manager->shutdown();
+}
