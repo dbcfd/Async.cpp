@@ -159,7 +159,7 @@ const size_t Manager::chunkSize()
     size_t chunk = 1;
     {
         std::unique_lock<std::mutex> lock(mMutex);
-        chunk = std::max(1u, 3 * mWorkers.size() / 4);
+        chunk = std::max(size_t(1), size_t(3 * mWorkers.size() / 4));
     }
     return chunk;
 
