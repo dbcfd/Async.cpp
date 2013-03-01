@@ -12,10 +12,6 @@ set(version 0.5.0)
 
 set(PROJECT_SO_VERSION ${version})
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/lib)
-
 option(BUILD_TESTS "Build tests" ON)
 option(USE_STATIC_RUNTIME "Use the static runtime (/MT)" OFF)
 option(BUILD_SHARED_LIBS "Build component libraries as shared libraries" ON)
@@ -39,6 +35,7 @@ SetBuildProperties(${CMAKE_PROJECT_NAME})
 set(outputBase "${CMAKE_CURRENT_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${outputBase}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${outputBase}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${outputBase}/bin)
 
 #paths
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
