@@ -28,6 +28,7 @@ protected:
 
     std::function<AsyncFuture(AsyncResult&)> mGenerateResultFunc;
     std::shared_ptr<workers::IManager> mManager;
+    std::atomic_bool mWasRun;
 
 private:
     bool mHasForwardedFuture;
@@ -71,7 +72,6 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::function<AsyncFuture(AsyncResult&)> mGenerateResultFunc;
     std::promise<AsyncResult> mPromise;
     std::shared_ptr<SeriesTerminalTask> mTerminalTask;
 };
@@ -91,6 +91,7 @@ protected:
     virtual void performSpecific();
 
 private:
+    std::atomic_bool mWasRun;
     AsyncFuture mForwardedFuture;
     std::promise<AsyncResult> mPromise;
 };

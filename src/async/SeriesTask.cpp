@@ -13,6 +13,7 @@ ISeriesTask::ISeriesTask(std::shared_ptr<workers::IManager> mgr, std::function<A
     : mManager(mgr), mGenerateResultFunc(generateResult), mHasForwardedFuture(false)
 {
     assert(mgr);
+    mWasRun = false;
 }
 
 //------------------------------------------------------------------------------
@@ -44,7 +45,10 @@ SeriesTask::SeriesTask(std::shared_ptr<workers::IManager> mgr,
 //------------------------------------------------------------------------------
 SeriesTask::~SeriesTask()
 {
-    cancel();
+    if(!mWasRun)
+    {
+        cancel();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -56,6 +60,7 @@ void SeriesTask::cancel()
 //------------------------------------------------------------------------------
 void SeriesTask::performSpecific()
 {
+    mWasRun.exchange(true);
     AsyncFuture futureToForward;
     try {
         futureToForward = mGenerateResultFunc(getResult());
@@ -79,7 +84,10 @@ SeriesCollectTask::SeriesCollectTask(std::shared_ptr<workers::IManager> mgr,
 //------------------------------------------------------------------------------
 SeriesCollectTask::~SeriesCollectTask()
 {
-    cancel();
+    if(!mWasRun)
+    {
+        cancel();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -91,6 +99,7 @@ void SeriesCollectTask::cancel()
 //------------------------------------------------------------------------------
 void SeriesCollectTask::performSpecific()
 {
+    mWasRun.exchange(true);
     AsyncFuture futureToForward;
     try {
         futureToForward = mGenerateResultFunc(getResult());
@@ -106,13 +115,16 @@ void SeriesCollectTask::performSpecific()
 //------------------------------------------------------------------------------
 SeriesTerminalTask::SeriesTerminalTask()
 {
-
+    mWasRun = false;
 }
 
 //------------------------------------------------------------------------------
 SeriesTerminalTask::~SeriesTerminalTask()
 {
-    cancel();
+    if(!mWasRun)
+    {
+        cancel();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -130,6 +142,7 @@ void SeriesTerminalTask::cancel()
 //------------------------------------------------------------------------------
 void SeriesTerminalTask::performSpecific()
 {
+    mWasRun.exchange(true);
     mPromise.set_value(mForwardedFuture.get());
 }
 
