@@ -20,36 +20,41 @@ TEST(ASYNC_TEST, PARALLEL)
     std::atomic<int> runCount(1);
     std::vector<int> taskRunOrder(6, 0);
 
-    std::function<AsyncResult(void)> opsArray[] = {
-        [&taskRunOrder, &runCount]()->AsyncResult { 
+    std::function<AsyncFuture(void)> opsArray[] = {
+        [&taskRunOrder, &runCount]()->AsyncFuture { 
             taskRunOrder[0] = runCount.fetch_add(1); 
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         }, 
-        [&taskRunOrder, &runCount]()->AsyncResult { 
+        [&taskRunOrder, &runCount]()->AsyncFuture { 
             taskRunOrder[1] = runCount.fetch_add(1); 
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [&taskRunOrder, &runCount]()->AsyncResult { 
+        [&taskRunOrder, &runCount]()->AsyncFuture { 
             taskRunOrder[2] = runCount.fetch_add(1); 
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [&taskRunOrder, &runCount]()->AsyncResult { 
+        [&taskRunOrder, &runCount]()->AsyncFuture { 
             taskRunOrder[3] = runCount.fetch_add(1); 
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [&taskRunOrder, &runCount]()->AsyncResult { 
+        [&taskRunOrder, &runCount]()->AsyncFuture { 
             taskRunOrder[4] = runCount.fetch_add(1); 
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         }
     };
 
     auto parallelResult = Parallel(manager, opsArray, 5).execute(
-        [&taskRunOrder, &runCount](AsyncResult& result)->AsyncResult {
-            if(!result.wasError())
+        [&taskRunOrder, &runCount](std::vector<AsyncResult>& results)->AsyncFuture {
+            bool allSuccessful = true;
+            for(auto& result : results)
+            {
+                allSuccessful &= result.wasError();
+            }
+            if(allSuccessful)
             {
                 taskRunOrder[5] = runCount;
             }
-            return std::move(result);
+            return AsyncResult().asFulfilledFuture();
         } );
 
     ASSERT_NO_THROW(parallelResult.get().throwIfError());
@@ -69,31 +74,36 @@ TEST(ASYNC_TEST, PARALLEL_TIMING)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](const size_t index)->AsyncResult {
+    auto func = [&times](const size_t index)->AsyncFuture {
         times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
-        return AsyncResult();
+        return AsyncResult().asFulfilledFuture();
     };
 
-    std::function<AsyncResult(void)> opsArray[] = {
-        std::bind(std::function<AsyncResult(const size_t)>(func), 0), 
-        std::bind(std::function<AsyncResult(const size_t)>(func), 1), 
-        std::bind(std::function<AsyncResult(const size_t)>(func), 2), 
-        std::bind(std::function<AsyncResult(const size_t)>(func), 3), 
-        std::bind(std::function<AsyncResult(const size_t)>(func), 4) 
+    std::function<AsyncFuture(void)> opsArray[] = {
+        std::bind(std::function<AsyncFuture(const size_t)>(func), 0), 
+        std::bind(std::function<AsyncFuture(const size_t)>(func), 1), 
+        std::bind(std::function<AsyncFuture(const size_t)>(func), 2), 
+        std::bind(std::function<AsyncFuture(const size_t)>(func), 3), 
+        std::bind(std::function<AsyncFuture(const size_t)>(func), 4) 
     };
 
     Parallel parallel(manager, opsArray, 5);
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    auto parallelResult = parallel.execute([&times, &start](AsyncResult& result)->AsyncResult {
-        if(!result.wasError())
+    auto parallelResult = parallel.execute([&times, &start](std::vector<AsyncResult>& results)->AsyncFuture {
+        bool wasSuccessful = true;
+        for(auto& res : results)
+        {
+            wasSuccessful = !res.wasError();
+        }
+        if(wasSuccessful)
         {
             times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                 new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                 );
         }
-        return std::move(result);
+        return AsyncResult().asFulfilledFuture();
     } );
 
     ASSERT_NO_THROW(parallelResult.get().throwIfError());
@@ -125,51 +135,51 @@ TEST(ASYNC_TEST, SERIES)
     std::atomic<size_t> runCount(1);
     std::vector<size_t> runOrder(6, 0);
 
-    std::function<AsyncResult(AsyncResult&)> opsArray[] = {
-        [&runOrder, &runCount](AsyncResult& res)->AsyncResult {
+    std::function<AsyncFuture(AsyncResult&)> opsArray[] = {
+        [&runOrder, &runCount](AsyncResult& res)->AsyncFuture {
             if(!res.wasError())
             {
                 runOrder[0] = runCount.fetch_add(1);
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         },
-        [&runOrder, &runCount](AsyncResult& res)->AsyncResult {
+        [&runOrder, &runCount](AsyncResult& res)->AsyncFuture {
             if(!res.wasError())
             {
                 runOrder[1] = runCount.fetch_add(1);
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         },
-        [&runOrder, &runCount](AsyncResult& res)->AsyncResult {
+        [&runOrder, &runCount](AsyncResult& res)->AsyncFuture {
             if(!res.wasError())
             {
                 runOrder[2] = runCount.fetch_add(1);
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         },
-        [&runOrder, &runCount](AsyncResult& res)->AsyncResult {
+        [&runOrder, &runCount](AsyncResult& res)->AsyncFuture {
             if(!res.wasError())
             {
                 runOrder[3] = runCount.fetch_add(1);
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         },
-        [&runOrder, &runCount](AsyncResult& res)->AsyncResult {
+        [&runOrder, &runCount](AsyncResult& res)->AsyncFuture {
             if(!res.wasError())
             {
                 runOrder[4] = runCount.fetch_add(1);
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         }
     };
 
     auto seriesResult = Series(manager, opsArray, 5).execute(
-        [&runOrder, &runCount](AsyncResult& result)->AsyncResult {
+        [&runOrder, &runCount](AsyncResult& result)->AsyncFuture {
             if(!result.wasError())
             {
                 runOrder[5] = runCount;
             }
-            return std::move(result);
+            return AsyncResult().asFulfilledFuture();
         } );
 
     ASSERT_NO_THROW(seriesResult.get().throwIfError());
@@ -187,34 +197,34 @@ TEST(ASYNC_TEST, SERIES_TIMING)
     std::shared_ptr<workers::IManager> manager(new workers::Manager(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](AsyncResult& res, const size_t index)->AsyncResult {
+    auto func = [&times](AsyncResult& res, const size_t index)->AsyncFuture {
         if(!res.wasError())
         {
             times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                 new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                 );
         }
-        return std::move(res);
+        return AsyncResult().asFulfilledFuture();
     };
 
-    std::function<AsyncResult(AsyncResult&)> opsArray[] = {
-        std::bind(std::function<AsyncResult(AsyncResult&, const size_t)>(func), std::placeholders::_1, 0), 
-        std::bind(std::function<AsyncResult(AsyncResult&, const size_t)>(func), std::placeholders::_1, 1), 
-        std::bind(std::function<AsyncResult(AsyncResult&, const size_t)>(func), std::placeholders::_1, 2), 
-        std::bind(std::function<AsyncResult(AsyncResult&, const size_t)>(func), std::placeholders::_1, 3), 
-        std::bind(std::function<AsyncResult(AsyncResult&, const size_t)>(func), std::placeholders::_1, 4) 
+    std::function<AsyncFuture(AsyncResult&)> opsArray[] = {
+        std::bind(std::function<AsyncFuture(AsyncResult&, const size_t)>(func), std::placeholders::_1, 0), 
+        std::bind(std::function<AsyncFuture(AsyncResult&, const size_t)>(func), std::placeholders::_1, 1), 
+        std::bind(std::function<AsyncFuture(AsyncResult&, const size_t)>(func), std::placeholders::_1, 2), 
+        std::bind(std::function<AsyncFuture(AsyncResult&, const size_t)>(func), std::placeholders::_1, 3), 
+        std::bind(std::function<AsyncFuture(AsyncResult&, const size_t)>(func), std::placeholders::_1, 4) 
     };
 
     Series series(manager, opsArray, 5);
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    auto seriesResult = series.execute([&times, &start](AsyncResult& result)->AsyncResult {
+    auto seriesResult = series.execute([&times, &start](AsyncResult& result)->AsyncFuture {
         if(!result.wasError())
         {
             times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                 new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                 );
         }
-        return std::move(result);
+        return AsyncResult().asFulfilledFuture();
     } );
 
     ASSERT_NO_THROW(seriesResult.get().throwIfError());
@@ -238,12 +248,12 @@ TEST(ASYNC_TEST, PARALLEL_FOREACH)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](std::shared_ptr<const void> data)->AsyncResult {
+    auto func = [&times](std::shared_ptr<const void> data)->AsyncFuture {
         std::shared_ptr<const int> index = std::static_pointer_cast<const int>(data);
         times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
-        return AsyncResult();
+        return AsyncResult().asFulfilledFuture();
     };
 
     std::vector<std::shared_ptr<void>> data;
@@ -255,14 +265,19 @@ TEST(ASYNC_TEST, PARALLEL_FOREACH)
 
     ParallelForEach parallel(manager, func, data);
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    auto parallelResult = parallel.execute([&times, &start](AsyncResult& result)->AsyncResult {
-        if(!result.wasError())
+    auto parallelResult = parallel.execute([&times, &start](std::vector<AsyncResult>& results)->AsyncFuture {
+        bool wasSuccessful = true;
+        for(auto& res : results)
+        {
+            wasSuccessful &= !res.wasError();
+        }
+        if(wasSuccessful)
         {
             times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                 new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                 );
         }
-        return std::move(result);
+        return AsyncResult().asFulfilledFuture();
     } );
 
     ASSERT_NO_THROW(parallelResult.get().throwIfError());
@@ -294,24 +309,28 @@ TEST(ASYNC_TEST, PARALLEL_FOR)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(nbTasks));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
-    auto func = [&times](std::shared_ptr<void> data)->AsyncResult {
-        auto index = std::static_pointer_cast<size_t>(data);
-        times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
+    auto func = [&times](size_t index)->AsyncFuture {
+        times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
-        return AsyncResult();
+        return AsyncResult().asFulfilledFuture();
     };
 
     ParallelFor parallel(manager, func, nbTasks);
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    auto parallelResult = parallel.execute([&times, &start, nbTasks](AsyncResult& result)->AsyncResult {
-        if(!result.wasError())
+    auto parallelResult = parallel.execute([&times, &start, nbTasks](std::vector<AsyncResult>& results)->AsyncFuture {
+        bool wasSuccesful = true;
+        for(auto& res : results)
+        {
+            wasSuccesful &= !res.wasError();
+        }
+        if(wasSuccesful)
         {
             times[nbTasks] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                 new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                 );
         }
-        return std::move(result);
+        return AsyncResult().asFulfilledFuture();
     } );
 
     ASSERT_NO_THROW(parallelResult.get().throwIfError());
@@ -343,55 +362,59 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(3));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
-    auto func = [&times](std::shared_ptr<void> data)->AsyncResult {
-        auto index = std::static_pointer_cast<size_t>(data);
-        times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
+    auto func = [&times](size_t index)->AsyncFuture {
+        times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
-        return AsyncResult();
+        return AsyncResult().asFulfilledFuture();
     };
 
     auto parallel5 = ParallelFor(manager,
-        [](std::shared_ptr<void> data)->AsyncResult {
+        [](size_t index)->AsyncFuture {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    return AsyncResult();
+                    return AsyncResult().asFulfilledFuture();
         }, 5).execute();
 
     auto parallel25 = ParallelFor(manager,
-        [](std::shared_ptr<void> data)->AsyncResult {
+        [](size_t index)->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         }, 25).execute();
 
     auto parallelTimes = ParallelFor(manager, func, nbTasks).execute(
-        [&times](AsyncResult& res)->AsyncResult {
-            if(!res.wasError())
+        [&times](std::vector<AsyncResult>& results)->AsyncFuture {
+            bool wasSuccessful = true;
+            for(auto& res : results)
+            {
+                wasSuccessful &= !res.wasError();
+            }
+            if(wasSuccessful)
             {
                 times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                     new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                     );
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         } );
 
 
-    std::function<AsyncResult(AsyncResult&)> ops[] = {
-        [&parallel5](AsyncResult&)->AsyncResult {
-            return parallel5.get();
+    std::function<AsyncFuture(AsyncResult&)> ops[] = {
+        [&parallel5](AsyncResult&)->AsyncFuture {
+            return std::move(parallel5);
         },
-        [&parallel25](AsyncResult&)->AsyncResult {
-            return parallel25.get();
+        [&parallel25](AsyncResult&)->AsyncFuture {
+            return std::move(parallel25);
         }, 
-        [](AsyncResult&)->AsyncResult {
+        [](AsyncResult&)->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [](AsyncResult&)->AsyncResult {
+        [](AsyncResult&)->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [&parallelTimes](AsyncResult&)->AsyncResult {
-            return parallelTimes.get();
+        [&parallelTimes](AsyncResult&)->AsyncFuture {
+            return std::move(parallelTimes);
         }
     };
 
@@ -413,55 +436,59 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER_PARALLEL)
     std::shared_ptr<workers::Manager> manager(new workers::Manager(3));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
-    auto func = [&times](std::shared_ptr<void> data)->AsyncResult {
-        auto index = std::static_pointer_cast<size_t>(data);
-        times[*index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
+    auto func = [&times](size_t index)->AsyncFuture {
+        times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
             new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
             );
-        return AsyncResult();
+        return AsyncResult().asFulfilledFuture();
     };
 
     auto parallel5 = ParallelFor(manager,
-        [](std::shared_ptr<void> data)->AsyncResult {
+        [](size_t index)->AsyncFuture {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    return AsyncResult();
+                    return AsyncResult().asFulfilledFuture();
         }, 5).execute();
 
     auto parallel25 = ParallelFor(manager,
-        [](std::shared_ptr<void> data)->AsyncResult {
+        [](size_t index)->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         }, 25).execute();
 
     auto parallelTimes = ParallelFor(manager, func, nbTasks).execute(
-        [&times](AsyncResult& res)->AsyncResult {
-            if(!res.wasError())
+        [&times](std::vector<AsyncResult>& results)->AsyncFuture {
+            bool wasSuccessful = true;
+            for(auto& res : results)
+            {
+                wasSuccessful &= !res.wasError();
+            }
+            if(wasSuccessful)
             {
                 times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
                     new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
                     );
             }
-            return std::move(res);
+            return AsyncResult().asFulfilledFuture();
         } );
 
 
-    std::function<AsyncResult()> ops[] = {
-        [&parallel5]()->AsyncResult {
-            return parallel5.get();
+    std::function<AsyncFuture()> ops[] = {
+        [&parallel5]()->AsyncFuture {
+            return std::move(parallel5);
         },
-        [&parallel25]()->AsyncResult {
-            return parallel25.get();
+        [&parallel25]()->AsyncFuture {
+            return std::move(parallel25);
         }, 
-        []()->AsyncResult {
+        []()->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        []()->AsyncResult {
+        []()->AsyncFuture {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult();
+            return AsyncResult().asFulfilledFuture();
         },
-        [&parallelTimes]()->AsyncResult {
-            return parallelTimes.get();
+        [&parallelTimes]()->AsyncFuture {
+            return std::move(parallelTimes);
         }
     };
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "async/Platform.h"
+#include "async/Async.h"
 
 #include <memory>
 
@@ -54,6 +55,8 @@ public:
      */
     inline const std::string& error() const;
 
+    inline AsyncFuture asFulfilledFuture() const;
+
     /**
      * Return the result as the given type, if not error. Throw if error.
      * @type Type of return
@@ -79,6 +82,14 @@ std::shared_ptr<void> AsyncResult::result() const
 const std::string& AsyncResult::error() const
 {
     return mError;
+}
+
+//------------------------------------------------------------------------------
+AsyncFuture AsyncResult::asFulfilledFuture() const
+{
+    std::promise<AsyncResult> result;
+    result.set_value(*this);
+    return result.get_future();
 }
 
 //------------------------------------------------------------------------------

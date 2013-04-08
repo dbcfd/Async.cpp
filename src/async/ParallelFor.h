@@ -1,6 +1,6 @@
 #pragma once
 #include "async/Platform.h"
-#include "async/AsyncTask.h"
+#include "async/Async.h"
 
 namespace async_cpp {
 
@@ -23,7 +23,7 @@ public:
      * @param nbTimes Number of times to run operation for
      */
     ParallelFor(std::shared_ptr<workers::IManager> manager, 
-        std::function<AsyncResult(std::shared_ptr<void>)> op, 
+        std::function<AsyncFuture(size_t)> op, 
         const size_t nbTimes);
 
     /**
@@ -31,7 +31,7 @@ public:
      * @param onFinishTask Task to run when operation has been applied to all data
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    AsyncFuture execute(std::function<AsyncResult(AsyncResult&)> onFinishTask);
+    AsyncFuture execute(std::function<AsyncFuture(std::vector<AsyncResult>&)> onFinishTask);
     /**
      * Run the operation across the set of data.
      * @return Future indicating when all operations are complete
@@ -39,7 +39,7 @@ public:
     AsyncFuture execute();
 
 private:
-    std::function<AsyncResult(std::shared_ptr<void>)> mOp;
+    std::function<AsyncFuture(size_t)> mOp;
     std::shared_ptr<workers::IManager> mManager;
     size_t mNbTimes;
 };

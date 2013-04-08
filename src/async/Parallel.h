@@ -1,6 +1,6 @@
 #pragma once
 #include "async/Platform.h"
-#include "async/AsyncTask.h"
+#include "async/Async.h"
 
 namespace async_cpp {
 
@@ -21,21 +21,21 @@ public:
      * @param manager Manager to run tasks against
      * @param tasks Vector of tasks that will be run
      */
-    Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncResult(void)>>& tasks);
+    Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncFuture(void)>>& tasks);
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
      * @param tasks Array of tasks that will be run
      * @param nbTasks Number of tasks in array
      */
-    Parallel(std::shared_ptr<workers::IManager> manager, std::function<AsyncResult(void)> tasks[], const size_t nbTasks);
+    Parallel(std::shared_ptr<workers::IManager> manager, std::function<AsyncFuture(void)> tasks[], const size_t nbTasks);
 
     /**
      * Run the set of tasks in parallel, calling a task when the parallel tasks have completed.
      * @param onFinishTask Task to run when parallel tasks are complete
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    AsyncFuture execute(std::function<AsyncResult(AsyncResult&)> onFinishTask);
+    AsyncFuture execute(std::function<AsyncFuture(std::vector<AsyncResult>&)> onFinishTask);
 
     /**
      * Run the set of tasks in parallel
@@ -44,7 +44,7 @@ public:
     AsyncFuture execute();
 
 private:
-    std::vector<std::function<AsyncResult(void)>> mOps;
+    std::vector<std::function<AsyncFuture(void)>> mOps;
     std::shared_ptr<workers::IManager> mManager;
 };
 

@@ -25,21 +25,21 @@ public:
      * @param manager Manager to run tasks against
      * @param ops Vector of tasks that will be run
      */
-    Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncResult(AsyncResult&)>>& ops);
+    Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncFuture(AsyncResult&)>>& ops);
     /**
      * Create a series task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
      * @param ops Array of operations that will be run
      * @param nbOps Number of operations in array
      */
-    Series(std::shared_ptr<workers::IManager> manager, std::function<AsyncResult(AsyncResult&)>* ops, const size_t nbOps);
+    Series(std::shared_ptr<workers::IManager> manager, std::function<AsyncFuture(AsyncResult&)>* ops, const size_t nbOps);
 
     /**
      * Run the set of tasks in series, calling a task when the series tasks have completed.
      * @param onFinishTask Task to run when series tasks are complete
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    AsyncFuture execute(std::function<AsyncResult(AsyncResult&)> onFinishTask);
+    AsyncFuture execute(std::function<AsyncFuture(AsyncResult&)> onFinishTask);
 
     /**
      * Run the set of tasks in series
@@ -48,8 +48,7 @@ public:
     AsyncFuture execute();
 
 private:
-    std::vector<std::function<AsyncResult(AsyncResult&)>> mOperations;
-    std::shared_ptr<AsyncTerminalTask> mTerminalTask;
+    std::vector<std::function<AsyncFuture(AsyncResult&)>> mOperations;
     std::shared_ptr<workers::IManager> mManager;
 };
 
