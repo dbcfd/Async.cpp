@@ -27,7 +27,7 @@ _FIND_GTEST_HEADER(gtest_INCLUDE_DIR)
 if(gtest_INCLUDE_DIR)
 	set(gtest_FOUND ON)
 	message("-- Found GTest as source: ${gtest_INCLUDE_DIR}")
-	set(gtest_INCLUDE_DIRS ${gtest_INCLUDE_DIR})
+	set(gtest_INCLUDE_DIRS ${gtest_INCLUDE_DIR} CACHE INTERNAL "Gtest include dirs")
 
 	include_directories(${gtest_INCLUDE_DIRS})
 endif()
