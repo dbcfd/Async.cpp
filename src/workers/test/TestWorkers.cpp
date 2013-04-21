@@ -105,7 +105,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
         Worker worker(completeFunction);
 
         //setup and run task
-        std::shared_ptr<Task> task1(new TestTask());
+        auto task1(std::make_shared<TestTask>());
         worker.runTask(task1);
 
         //check that task was run
@@ -126,7 +126,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
         Worker worker(completeFunction);
 
         //shutdown worker at same time as running task
-        std::shared_ptr<Task> task1(new TestTask());
+        auto task1(std::make_shared<TestTask>());
         worker.runTask(task1);
         worker.shutdown();
 
@@ -141,7 +141,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
         Worker worker(completeFunction);
 
         //shutdown worker before running task
-        std::shared_ptr<Task> task1(new TestTask());
+        auto task1(std::make_shared<TestTask>());
         worker.shutdown();
         worker.runTask(task1);
 
@@ -160,8 +160,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         std::vector< std::shared_ptr<Task> > tasks;
         for(size_t i = 0; i < 5; ++i) 
         {
-            Task* task = new TestTask();
-            tasks.push_back(std::shared_ptr<Task>(task));
+            tasks.emplace_back(std::make_shared<TestTask>());
         }
 
         //less workers than tasks, make sure they can go back and grab tasks
@@ -189,8 +188,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         std::vector< std::shared_ptr<Task> > tasks;
         for(size_t i = 0; i < 10; ++i) 
         {
-            Task* task = new TestTask();
-            tasks.push_back(std::shared_ptr<Task>(task));
+            tasks.emplace_back(std::make_shared<TestTask>());
         }
 
         //less workers than tasks, make sure they can go back and grab tasks

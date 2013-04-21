@@ -76,7 +76,7 @@ void SeriesTask::performSpecific()
 //------------------------------------------------------------------------------
 SeriesCollectTask::SeriesCollectTask(std::shared_ptr<workers::IManager> mgr,
                                        std::function<AsyncFuture(AsyncResult&)> generateResult)
-                                       : ISeriesTask(mgr, generateResult), mTerminalTask(new SeriesTerminalTask())
+                                       : ISeriesTask(mgr, generateResult), mTerminalTask(std::make_shared<SeriesTerminalTask>())
 {
 
 }

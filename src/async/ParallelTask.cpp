@@ -33,7 +33,7 @@ ParallelCollectTask::ParallelCollectTask(std::shared_ptr<workers::IManager> mgr,
                                            const size_t tasksOutstanding, 
                                            std::function<AsyncFuture(std::vector<AsyncResult>&)> generateResult)
                                            : mManager(mgr), mTasksOutstanding(tasksOutstanding), mGenerateResultFunc(generateResult), 
-                                           mTerminalTask(new ParallelTerminalTask())
+                                           mTerminalTask(std::make_shared<ParallelTerminalTask>())
 {
     assert(mgr);
     mTaskResults.reserve(tasksOutstanding);

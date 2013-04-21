@@ -71,7 +71,7 @@ ParallelForEachTemplate<TVOID>::ParallelForEachTemplate(std::shared_ptr<workers:
 template<class TVOID>
 AsyncFuture ParallelForEachTemplate<TVOID>::execute(std::function<AsyncFuture(std::vector<AsyncResult>&)> onFinishOp)
 {
-    std::shared_ptr<ParallelCollectTask> terminalTask(new ParallelCollectTask(mManager, mData.size(), onFinishOp));
+    auto terminalTask(std::make_shared<ParallelCollectTask>(mManager, mData.size(), onFinishOp));
 
     auto future = terminalTask->getFuture();
 
@@ -80,7 +80,7 @@ AsyncFuture ParallelForEachTemplate<TVOID>::execute(std::function<AsyncFuture(st
         auto op = [this, data](void) -> AsyncFuture {
             return mOp(data);
         };
-        mManager->run(std::shared_ptr<workers::Task>(new ParallelTask(mManager, op, terminalTask)));
+        mManager->run(std::make_shared<ParallelTask>(mManager, op, terminalTask));
     }
 
     return future;

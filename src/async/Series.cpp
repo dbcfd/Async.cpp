@@ -30,14 +30,14 @@ Series::Series(std::shared_ptr<workers::IManager> manager, std::function<AsyncFu
 //------------------------------------------------------------------------------
 AsyncFuture Series::execute(std::function<AsyncFuture(AsyncResult&)> onFinishOp)
 {
-    std::shared_ptr<SeriesCollectTask> finishTask(new SeriesCollectTask(mManager, onFinishOp));
+    auto finishTask(std::make_shared<SeriesCollectTask>(mManager, onFinishOp));
 
     auto result = finishTask->getFuture();
 
     std::shared_ptr<ISeriesTask> nextTask = finishTask;
     for(auto opItr = mOperations.rbegin(); opItr != mOperations.rend(); ++opItr)
     {
-        nextTask = std::shared_ptr<SeriesTask>(new SeriesTask(mManager, (*opItr), nextTask));
+        nextTask = std::make_shared<SeriesTask>(mManager, (*opItr), nextTask);
     }
 
     mManager->run(nextTask);

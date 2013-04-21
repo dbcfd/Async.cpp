@@ -24,14 +24,14 @@ ParallelFor::ParallelFor(std::shared_ptr<workers::IManager> manager,
 //------------------------------------------------------------------------------
 AsyncFuture ParallelFor::execute(std::function<AsyncFuture(std::vector<AsyncResult>&)> onFinishOp)
 {
-    std::shared_ptr<ParallelCollectTask> terminalTask(new ParallelCollectTask(mManager, mNbTimes, onFinishOp));
+    auto terminalTask(std::make_shared<ParallelCollectTask>(mManager, mNbTimes, onFinishOp));
 
     auto future = terminalTask->getFuture();
 
     for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
         auto op = std::bind(mOp, idx);
-        mManager->run(std::shared_ptr<workers::Task>(new ParallelTask(mManager, op, terminalTask)));
+        mManager->run(std::make_shared<ParallelTask>(mManager, op, terminalTask));
     }
 
     return future;   
