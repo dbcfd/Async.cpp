@@ -77,10 +77,7 @@ AsyncFuture ParallelForEachTemplate<TVOID>::execute(std::function<AsyncFuture(st
 
     for(auto data : mData)
     {
-        auto op = [this, data](void) -> AsyncFuture {
-            return mOp(data);
-        };
-        mManager->run(std::make_shared<ParallelTask>(mManager, op, terminalTask));
+        mManager->run(std::make_shared<ParallelTask>(mManager, std::bind(mOp, data), terminalTask));
     }
 
     return future;
