@@ -46,6 +46,8 @@ set(THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 set(gtest_VERSION 1.6.0)
 add_subdirectory(thirdparty)
 
+find_package(Boost 1.53.0)
+
 if(BUILD_TESTS)
 	enable_testing()
 endif()

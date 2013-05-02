@@ -1,2 +1,1 @@
-add_subdirectory(workers)
-add_subdirectory(async)
+add_subdirectory(async_cpp)
