@@ -20,7 +20,7 @@ public:
     virtual ~BasicTask();
 
 protected:
-    virtual void performSpecific();
+    virtual void performSpecific() final;
 
 private:
     std::function<void(void)> mFunctionToRun;

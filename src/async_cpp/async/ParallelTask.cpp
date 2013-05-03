@@ -19,6 +19,12 @@ ParallelTask::ParallelTask(std::shared_ptr<tasks::IManager> mgr,
 }
 
 //------------------------------------------------------------------------------
+ParallelTask::~ParallelTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
 void ParallelTask::performSpecific()
 {
     auto tasksRemaining = mCollectTask->notifyTaskCompletion(mGenerateResultFunc());
@@ -40,12 +46,25 @@ ParallelCollectTask::ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
 }
 
 //------------------------------------------------------------------------------
+ParallelCollectTask::~ParallelCollectTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
 void ParallelCollectTask::performSpecific()
 {
     std::vector<AsyncResult> results;
     for(auto& future : mTaskResults)
     {
-        results.emplace_back(future.get());
+        try 
+        {
+            results.emplace_back(future.get());
+        }
+        catch(std::future_error& ex)
+        {
+            results.emplace_back(AsyncResult(ex.what()));
+        }
     }
     AsyncFuture futureToForward;
     try {
@@ -66,9 +85,39 @@ ParallelTerminalTask::ParallelTerminalTask()
 }
 
 //------------------------------------------------------------------------------
+ParallelTerminalTask::~ParallelTerminalTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
 void ParallelTerminalTask::performSpecific()
 {
-    mPromise.set_value(mGeneratedFuture.get());
+    AsyncResult res;
+    try
+    {
+        res = mGeneratedFuture.get();
+    }
+    catch(std::future_error& ex)
+    {
+        res = AsyncResult(ex.what());
+    }
+    mPromise.set_value(res);
+}
+
+//------------------------------------------------------------------------------
+AsyncFuture ParallelTerminalTask::getFuture()
+{
+    AsyncFuture ret;
+    try 
+    {
+        ret = mPromise.get_future();
+    }
+    catch(std::future_error& error)
+    {
+        ret = AsyncResult(error.what()).asFulfilledFuture();
+    }
+    return ret;
 }
 
 }

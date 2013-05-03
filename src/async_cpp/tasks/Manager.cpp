@@ -14,7 +14,7 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
 {
     assert(nbWorkers > 0);
 
-    auto workerDoneFunction = [this](Worker* worker) -> void {
+    auto workerDoneFunction = [this](std::shared_ptr<Worker> worker) -> void {
         //grab the next task if available, otherwise add our worker to a wait list
         std::shared_ptr<Task> task;
         if(isRunning())
@@ -34,11 +34,6 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
                 }
             }
         }
-        else
-        {
-            std::unique_lock<std::mutex> lock(mMutex);
-            mWorkers.push(worker);
-        }
         if(nullptr != task)
         {
             worker->runTask(task);
@@ -49,11 +44,10 @@ Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorker
         }
     };
 
-    std::vector<Worker*> workers;
-    workers.reserve(nbWorkers);
     for(size_t workerIdx = 0; workerIdx < nbWorkers; ++workerIdx)
     {
-        mWorkers.push(new Worker(workerDoneFunction));
+        auto worker = std::make_shared<Worker>(workerDoneFunction);
+        mWorkers.push(worker);
     }
 }
 
@@ -97,14 +91,6 @@ void Manager::shutdown()
             tasks.pop();
         }
 
-        while(!mWorkers.empty())
-        {
-            Worker* worker = mWorkers.front();
-            mWorkers.pop();
-            worker->shutdown();
-            delete worker;
-        }
-
         mShutdownSignal.notify_all();
     }
 }
@@ -127,7 +113,7 @@ void Manager::run(std::shared_ptr<Task> task)
     //we want to run this task in a worker if one is available, else, add it to a queue
     if(isRunning())
     {
-        Worker* worker = nullptr;
+        std::shared_ptr<Worker> worker;
         {
             std::unique_lock<std::mutex> lock(mMutex);
             if(mWorkers.empty())
@@ -138,11 +124,11 @@ void Manager::run(std::shared_ptr<Task> task)
             else
             {
                 //worker available, grab it, and run task
-                worker = std::move(mWorkers.front());
+                worker = mWorkers.front();
                 mWorkers.pop();
             }
         }
-        if(nullptr != worker)
+        if(worker)
         {
             worker->runTask(task);
         }
@@ -151,18 +137,6 @@ void Manager::run(std::shared_ptr<Task> task)
     {
         task->failToPerform();
     }
-}
-
-//------------------------------------------------------------------------------
-const size_t Manager::chunkSize()
-{
-    size_t chunk = 1;
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        chunk = std::max(size_t(1), size_t(3 * mWorkers.size() / 4));
-    }
-    return chunk;
-
 }
 
 }

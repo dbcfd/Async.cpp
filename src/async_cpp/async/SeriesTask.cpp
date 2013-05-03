@@ -28,7 +28,14 @@ AsyncResult ISeriesTask::getResult()
     AsyncResult result;
     if(mHasForwardedFuture)
     {
-        result = mForwardedFuture.get();
+        try 
+        {
+            result = mForwardedFuture.get();
+        }
+        catch(std::future_error& ex)
+        {
+            result = AsyncResult(ex.what());
+        }
     }
     return result;
 }
@@ -143,7 +150,31 @@ void SeriesTerminalTask::cancel()
 void SeriesTerminalTask::performSpecific()
 {
     mWasRun.exchange(true);
-    mPromise.set_value(mForwardedFuture.get());
+    AsyncResult res;
+    try 
+    {
+        res = mForwardedFuture.get();
+    }
+    catch(std::future_error& ex)
+    {
+        res = AsyncResult(ex.what());
+    }
+    mPromise.set_value(res);
+}
+
+//------------------------------------------------------------------------------
+AsyncFuture SeriesTerminalTask::getFuture()
+{
+    AsyncFuture ret;
+    try 
+    {
+        ret = mPromise.get_future();
+    }
+    catch(std::future_error& error)
+    {
+        ret = AsyncResult(error.what()).asFulfilledFuture();
+    }
+    return ret;
 }
 
 }

@@ -1,12 +1,10 @@
 #pragma once
-#include "async_cpp/tasks/Platform.h"
+#include "async_cpp/tasks/Tasks.h"
 
 #include <memory>
 
 namespace async_cpp {
 namespace tasks {
-
-class Task;
 
 /**
  * Interface for managers, allowing replacement/mocks.
@@ -37,12 +35,6 @@ public:
      * @return True if manager is running
      */
     virtual const bool isRunning() = 0;
-
-    /**
-     * Size indicating best possible chunk size for a large set of threads.
-     * @return Best possible size for thread chunk
-     */
-    virtual const size_t chunkSize() =  0;
 };
 
 //inline implementations

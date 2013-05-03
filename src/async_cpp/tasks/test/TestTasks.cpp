@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include<thread>
-using namespace async_cpp::workers;
+using namespace async_cpp::tasks;
 
 class TestTask : public Task
 {
@@ -81,19 +81,17 @@ TEST(WORKERS_TEST, TEST_EXCEPTION_TASK)
 class WorkerComplete
 {
 public:
-    WorkerComplete() : hasCompleted(false), wasRunning(true)
+    WorkerComplete() : hasCompleted(false)
     {
 
     }
 
-    void complete(const bool running)
+    void complete()
     {
         hasCompleted = true;
-        wasRunning = running;
     }
 
     bool hasCompleted;
-    bool wasRunning;
 };
 
 TEST(WORKERS_TEST, TEST_WORKER)
@@ -101,18 +99,18 @@ TEST(WORKERS_TEST, TEST_WORKER)
     {
         //setup worker
         WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
+        auto completeFunction = [&workerComplete](std::shared_ptr<Worker> worker) -> void { workerComplete.complete(); };
+        auto worker = std::make_shared<Worker>(completeFunction);
 
         //setup and run task
         auto task1(std::make_shared<TestTask>());
-        worker.runTask(task1);
+        worker->runTask(task1);
 
         //check that task was run
         ASSERT_TRUE(task1->wasCompletedSuccessfully());
 
         //wait for worker to finish
-        worker.shutdown();
+        worker.reset();
 
         ASSERT_TRUE(workerComplete.hasCompleted);
 
@@ -122,34 +120,16 @@ TEST(WORKERS_TEST, TEST_WORKER)
     {
         //setup worker
         WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
+        auto completeFunction = [&workerComplete](std::shared_ptr<Worker> worker) -> void { workerComplete.complete(); };
+        auto worker = std::make_shared<Worker>(completeFunction);
 
         //shutdown worker at same time as running task
-        auto task1(std::make_shared<TestTask>());
-        worker.runTask(task1);
-        worker.shutdown();
+        auto task1 = std::make_shared<TestTask>();
+        worker->runTask(task1);
+        //just want to make sure that nothing bad happens when killing worker at approximately same time as running task
+        ASSERT_NO_THROW(worker.reset());
 
-        //shutdown after run, task may not get run
-        ASSERT_TRUE(workerComplete.hasCompleted);
-    }
-
-    {
-        //setup worker
-        WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
-
-        //shutdown worker before running task
-        auto task1(std::make_shared<TestTask>());
-        worker.shutdown();
-        worker.runTask(task1);
-
-        //we will fail to run task, which means worker will fail to look for another task
-        ASSERT_FALSE(task1->wasCompletedSuccessfully());
-        //worker was shutdown before run, complete will be marked as false
-        ASSERT_TRUE(workerComplete.hasCompleted);
-        ASSERT_FALSE(workerComplete.wasRunning);
+        //shutdown after run, task may or may not complete
     }
 }
 
@@ -173,9 +153,9 @@ TEST(WORKERS_TEST, MANAGER_TEST)
 
         bool tasksCompleted = true;
 
-        for(std::vector< std::shared_ptr<Task> >::const_iterator task = tasks.begin(); task != tasks.end(); ++task)
+        for(auto task : tasks)
         {
-            tasksCompleted &= (*task)->wasCompletedSuccessfully();
+            tasksCompleted &= task->wasCompletedSuccessfully();
         }
 
         ASSERT_TRUE(tasksCompleted);

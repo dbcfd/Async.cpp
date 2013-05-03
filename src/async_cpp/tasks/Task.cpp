@@ -1,47 +1,69 @@
 #include "async_cpp/tasks/Task.h"
 
+#include <iostream>
+
 namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
-Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.get_future()), mHasFulfilledPromise(false)
+Task::Task()
 {
-
+    mTask = std::packaged_task<bool(bool, std::function<void(void)>)>(
+        [this](bool isFailing, std::function<void(void)> completeFunction)-> bool 
+        {
+            bool successful = false;
+            if(!isFailing)
+            {
+                try 
+                {
+                    performSpecific();
+                    successful = true;
+                }
+                catch(std::exception& ex)
+                {
+                    std::cout << "Task: Error when running, " << ex.what() << std::endl;
+                }
+    
+                completeFunction();
+            }
+            return successful;
+        } );
+    mTaskCompleteFuture = mTask.get_future();
 }
 
 //------------------------------------------------------------------------------
 Task::~Task()
 {
-    if(!mHasFulfilledPromise)
+    try
     {
-        failToPerform();
+        if(mTaskCompleteFuture.valid())
+        {
+            failToPerform();
+        }
+    }
+    catch(std::future_error&)
+    {
+        //already satisfied
     }
 }
 
 //------------------------------------------------------------------------------
 void Task::failToPerform()
 {
-    mHasFulfilledPromise = true;
-    mTaskCompletePromise.set_value(false);
+    mTask(true, [](){});
+}
+
+//------------------------------------------------------------------------------
+void Task::reset()
+{
+    mTask.reset();
+    mTaskCompleteFuture = mTask.get_future();
 }
 
 //------------------------------------------------------------------------------
 void Task::perform(std::function<void(void)> completeFunction)
 {
-    bool successful = false;
-    try 
-    {
-        performSpecific();
-        successful = true;
-    }
-    catch(std::runtime_error&)
-    {
-        
-    }
-
-    mHasFulfilledPromise = true;
-    mTaskCompletePromise.set_value(successful);
-    completeFunction();
+    mTask(false, completeFunction);
 }
 
 }
