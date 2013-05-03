@@ -1,7 +1,7 @@
-#include "async/ParallelTask.h"
-#include "async/AsyncResult.h"
-#include "workers/IManager.h"
-#include "workers/BasicTask.h"
+#include "async_cpp/async/ParallelTask.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/tasks/IManager.h"
+#include "async_cpp/tasks/BasicTask.h"
 
 #include <assert.h>
 
@@ -9,7 +9,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-ParallelTask::ParallelTask(std::shared_ptr<workers::IManager> mgr, 
+ParallelTask::ParallelTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<AsyncFuture(void)> generateResult,
         std::shared_ptr<ParallelCollectTask> collectTask)
     : mManager(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask)
@@ -29,7 +29,7 @@ void ParallelTask::performSpecific()
 }
 
 //------------------------------------------------------------------------------
-ParallelCollectTask::ParallelCollectTask(std::shared_ptr<workers::IManager> mgr,
+ParallelCollectTask::ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
                                            const size_t tasksOutstanding, 
                                            std::function<AsyncFuture(std::vector<AsyncResult>&)> generateResult)
                                            : mManager(mgr), mTasksOutstanding(tasksOutstanding), mGenerateResultFunc(generateResult), 

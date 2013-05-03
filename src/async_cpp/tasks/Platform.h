@@ -6,11 +6,11 @@
 #pragma warning(disable:4275)
 //windows defines
 #if defined(BUILD_SHARED_LIBS)
-#if defined(Workers_EXPORTS)
-#define WORKERS_API __declspec(dllexport)
+#if defined(Tasks_EXPORTS)
+#define ASYNC_CPP_TASKS_API __declspec(dllexport)
 #else
-#define WORKERS_API __declspec(dllimport)
+#define ASYNC_CPP_TASKS_API __declspec(dllimport)
 #endif
 #else
-#define WORKERS_API
+#define ASYNC_CPP_TASKS_API
 #endif

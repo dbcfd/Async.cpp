@@ -1,23 +1,23 @@
 #pragma once
-#include "async/Platform.h"
-#include "async/Async.h"
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/async/Async.h"
 
-#include "workers/Task.h"
+#include "async_cpp/tasks/Task.h"
 
 #include <functional>
 #include <vector>
 
 namespace async_cpp {
 
-namespace workers {
+namespace tasks {
 class IManager;
 }
 
 namespace async {
 
-class ASYNC_API ISeriesTask : public workers::Task {
+class ASYNC_CPP_ASYNC_API ISeriesTask : public tasks::Task {
 public:
-    ISeriesTask(std::shared_ptr<workers::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
+    ISeriesTask(std::shared_ptr<tasks::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
     virtual ~ISeriesTask();
 
     virtual void cancel() = 0;
@@ -27,7 +27,7 @@ protected:
     AsyncResult getResult();
 
     std::function<AsyncFuture(AsyncResult&)> mGenerateResultFunc;
-    std::shared_ptr<workers::IManager> mManager;
+    std::shared_ptr<tasks::IManager> mManager;
     std::atomic_bool mWasRun;
 
 private:
@@ -38,13 +38,13 @@ private:
 /**
  * Task which continues a chain of asynchronous tasks.
  */
-class ASYNC_API SeriesTask : public ISeriesTask {
+class ASYNC_CPP_ASYNC_API SeriesTask : public ISeriesTask {
 public:
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
-    SeriesTask(std::shared_ptr<workers::IManager> mgr, 
+    SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<AsyncFuture(AsyncResult&)> generateResult,
         std::shared_ptr<ISeriesTask> nextTask);    
     virtual ~SeriesTask();
@@ -60,9 +60,9 @@ private:
 
 //------------------------------------------------------------------------------
 class SeriesTerminalTask;
-class ASYNC_API SeriesCollectTask : public ISeriesTask {
+class ASYNC_CPP_ASYNC_API SeriesCollectTask : public ISeriesTask {
 public:
-    SeriesCollectTask(std::shared_ptr<workers::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
+    SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
     virtual ~SeriesCollectTask();
 
     virtual void cancel();
@@ -77,7 +77,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class ASYNC_API SeriesTerminalTask : public workers::Task {
+class ASYNC_CPP_ASYNC_API SeriesTerminalTask : public tasks::Task {
 public:
     SeriesTerminalTask();
     virtual ~SeriesTerminalTask();

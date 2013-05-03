@@ -1,13 +1,13 @@
-#include "workers/Manager.h"
-#include "workers/Worker.h"
-#include "workers/Task.h"
+#include "async_cpp/tasks/Manager.h"
+#include "async_cpp/tasks/Worker.h"
+#include "async_cpp/tasks/Task.h"
 
 #include <functional>
 
 #include <assert.h>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 //------------------------------------------------------------------------------
 Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)

@@ -1,7 +1,7 @@
-#include "workers/Task.h"
+#include "async_cpp/tasks/Task.h"
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 //------------------------------------------------------------------------------
 Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.get_future()), mHasFulfilledPromise(false)

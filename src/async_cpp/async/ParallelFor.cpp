@@ -1,8 +1,8 @@
-#include "async/ParallelFor.h"
-#include "async/AsyncResult.h"
-#include "async/ParallelTask.h"
+#include "async_cpp/async/ParallelFor.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/ParallelTask.h"
 
-#include "workers/IManager.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <assert.h>
 #include <atomic>
@@ -11,7 +11,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-ParallelFor::ParallelFor(std::shared_ptr<workers::IManager> manager, 
+ParallelFor::ParallelFor(std::shared_ptr<tasks::IManager> manager, 
         std::function<AsyncFuture(size_t)> op, 
         const size_t nbTimes)
     : mManager(manager), mOp(op), mNbTimes(nbTimes)

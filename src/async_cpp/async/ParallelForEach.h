@@ -1,9 +1,9 @@
 #pragma once
-#include "async/Platform.h"
-#include "async/AsyncResult.h"
-#include "async/ParallelTask.h"
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/ParallelTask.h"
 
-#include "workers/IManager.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <assert.h>
 #include <atomic>
@@ -11,7 +11,7 @@
 
 namespace async_cpp {
 
-namespace workers {
+namespace tasks {
 class IManager;
 }
 
@@ -28,7 +28,7 @@ public:
      * @param manager Manager to run tasks against
      * @param tasks Vector of tasks that will be run
      */
-    ParallelForEachTemplate(std::shared_ptr<workers::IManager> manager, 
+    ParallelForEachTemplate(std::shared_ptr<tasks::IManager> manager, 
         std::function<AsyncFuture(std::shared_ptr<TVOID>)> op, 
         const std::vector<std::shared_ptr<TVOID>>& data);
 
@@ -46,7 +46,7 @@ public:
 
 private:
     std::function<AsyncFuture(std::shared_ptr<TVOID>)> mOp;
-    std::shared_ptr<workers::IManager> mManager;
+    std::shared_ptr<tasks::IManager> mManager;
     std::vector<std::shared_ptr<TVOID>> mData;
 };
 
@@ -57,7 +57,7 @@ typedef ParallelForEachTemplate<const void> ParallelForEachConst;
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TVOID>
-ParallelForEachTemplate<TVOID>::ParallelForEachTemplate(std::shared_ptr<workers::IManager> manager, 
+ParallelForEachTemplate<TVOID>::ParallelForEachTemplate(std::shared_ptr<tasks::IManager> manager, 
         std::function<AsyncFuture(std::shared_ptr<TVOID>)> op, 
         const std::vector<std::shared_ptr<TVOID>>& data)
     : mManager(manager), mData(data), mOp(op)

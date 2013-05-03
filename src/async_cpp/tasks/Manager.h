@@ -1,6 +1,6 @@
 #pragma once
-#include "workers/Platform.h"
-#include "workers/IManager.h"
+#include "async_cpp/tasks/Platform.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -9,14 +9,14 @@
 #include <thread>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 class Worker;
 
 /**
  * Manager of a set of workers, which are used to run tasks. If no workers are available, tasks are queue'd.
  */
-class WORKERS_API Manager : public IManager {
+class ASYNC_CPP_TASKS_API Manager : public IManager {
 public:
     /**
      * Create a worker with a set number of workers, which will run tasks as they become available.

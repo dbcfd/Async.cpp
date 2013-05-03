@@ -1,16 +1,16 @@
 #pragma once
-#include "workers/Platform.h"
-#include "workers/Task.h"
+#include "async_cpp/tasks/Platform.h"
+#include "async_cpp/tasks/Task.h"
 
 #include <functional>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 /**
  * Basic task implementationwhich runs a function object.
  */
-class WORKERS_API BasicTask : public Task {
+class ASYNC_CPP_TASKS_API BasicTask : public Task {
 public:
     /**
      * Create a task to run, which will run a function object

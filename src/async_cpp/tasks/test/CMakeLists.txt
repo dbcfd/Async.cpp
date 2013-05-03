@@ -1,11 +1,11 @@
-set (TARGET TestWorkers)
+set (TARGET TestTasks)
 
 file(GLOB SOURCES "*.cpp")
 
 include(UseGtest)
 UseGtest(${TARGET} DEPENDENCIES ${SOURCES})
 
-SET (DEPENDENCIES ${DEPENDENCIES} Workers)
+SET (DEPENDENCIES ${DEPENDENCIES} Tasks)
 
 add_executable (${TARGET} ${HEADERS} ${SOURCES}) 
 target_link_libraries (${TARGET} ${DEPENDENCIES})

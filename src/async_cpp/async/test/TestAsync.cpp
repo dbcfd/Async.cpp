@@ -1,10 +1,10 @@
-#include "async/AsyncResult.h"
-#include "async/Parallel.h"
-#include "async/ParallelFor.h"
-#include "async/ParallelForEach.h"
-#include "async/Series.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/Parallel.h"
+#include "async_cpp/async/ParallelFor.h"
+#include "async_cpp/async/ParallelForEach.h"
+#include "async_cpp/async/Series.h"
 
-#include "workers/Manager.h"
+#include "async_cpp/tasks/Manager.h"
 
 #include <chrono>
 
@@ -16,7 +16,7 @@ using namespace async_cpp::async;
 
 TEST(ASYNC_TEST, PARALLEL)
 {
-    auto manager(std::make_shared<workers::Manager>(5));
+    auto manager(std::make_shared<tasks::Manager>(5));
     std::atomic<int> runCount(1);
     std::vector<int> taskRunOrder(6, 0);
 
@@ -71,7 +71,7 @@ TEST(ASYNC_TEST, PARALLEL)
 
 TEST(ASYNC_TEST, PARALLEL_TIMING)
 {
-    auto manager(std::make_shared<workers::Manager>(5));
+    auto manager(std::make_shared<tasks::Manager>(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
     auto func = [&times](const size_t index)->AsyncFuture {
@@ -131,7 +131,7 @@ TEST(ASYNC_TEST, PARALLEL_TIMING)
 
 TEST(ASYNC_TEST, SERIES)
 {
-    auto manager(std::make_shared<workers::Manager>(5));
+    auto manager(std::make_shared<tasks::Manager>(5));
     std::atomic<size_t> runCount(1);
     std::vector<size_t> runOrder(6, 0);
 
@@ -194,7 +194,7 @@ TEST(ASYNC_TEST, SERIES)
 
 TEST(ASYNC_TEST, SERIES_TIMING)
 {
-    auto manager(std::make_shared<workers::Manager>(5));
+    auto manager(std::make_shared<tasks::Manager>(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
     auto func = [&times](AsyncResult& res, const size_t index)->AsyncFuture {
@@ -245,7 +245,7 @@ TEST(ASYNC_TEST, SERIES_TIMING)
 
 TEST(ASYNC_TEST, PARALLEL_FOREACH)
 {
-    auto manager(std::make_shared<workers::Manager>(5));
+    auto manager(std::make_shared<tasks::Manager>(5));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
     auto func = [&times](std::shared_ptr<const void> data)->AsyncFuture {
@@ -306,7 +306,7 @@ TEST(ASYNC_TEST, PARALLEL_FOREACH)
 TEST(ASYNC_TEST, PARALLEL_FOR)
 {
     size_t nbTasks = 5;
-    auto manager(std::make_shared<workers::Manager>(nbTasks));
+    auto manager(std::make_shared<tasks::Manager>(nbTasks));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
     auto func = [&times](size_t index)->AsyncFuture {
@@ -359,7 +359,7 @@ TEST(ASYNC_TEST, PARALLEL_FOR)
 TEST(ASYNC_TEST, OVERLOAD_MANAGER)
 {
     size_t nbTasks = 5;
-    auto manager(std::make_shared<workers::Manager>(3));
+    auto manager(std::make_shared<tasks::Manager>(3));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
     auto func = [&times](size_t index)->AsyncFuture {
@@ -433,7 +433,7 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER)
 TEST(ASYNC_TEST, OVERLOAD_MANAGER_PARALLEL)
 {
     size_t nbTasks = 5;
-    auto manager(std::make_shared<workers::Manager>(3));
+    auto manager(std::make_shared<tasks::Manager>(3));
     std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
 
     auto func = [&times](size_t index)->AsyncFuture {

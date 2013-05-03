@@ -1,15 +1,15 @@
 #pragma once
-#include "async/Platform.h"
-#include "async/Async.h"
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/async/Async.h"
 
-#include "workers/Task.h"
+#include "async_cpp/tasks/Task.h"
 
 #include <functional>
 #include <vector>
 
 namespace async_cpp {
 
-namespace workers {
+namespace tasks {
 class IManager;
 }
 
@@ -20,9 +20,9 @@ class ParallelCollectTask;
 /**
  * Parallel running task
  */
-class ASYNC_API ParallelTask : public workers::Task {
+class ASYNC_CPP_ASYNC_API ParallelTask : public tasks::Task {
 public:
-    ParallelTask(std::shared_ptr<workers::IManager> mgr, 
+    ParallelTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<AsyncFuture(void)> generateResult,
         std::shared_ptr<ParallelCollectTask> parallelCollectTask);
 
@@ -30,7 +30,7 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::shared_ptr<workers::IManager> mManager;
+    std::shared_ptr<tasks::IManager> mManager;
     std::function<AsyncFuture(void)> mGenerateResultFunc;
     std::shared_ptr<ParallelCollectTask> mCollectTask;
 };
@@ -40,13 +40,13 @@ class ParallelTerminalTask;
 /**
  * Task which collects a set of futures from parallel tasks.
  */
-class ASYNC_API ParallelCollectTask : public workers::Task {
+class ASYNC_CPP_ASYNC_API ParallelCollectTask : public tasks::Task {
 public:
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
-    ParallelCollectTask(std::shared_ptr<workers::IManager> mgr,
+    ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
         const size_t tasksOutstanding, 
         std::function<AsyncFuture(std::vector<AsyncResult>&)> generateResult);
 
@@ -60,14 +60,14 @@ private:
     std::mutex mTasksMutex;
     size_t mTasksOutstanding;
     std::vector<AsyncFuture> mTaskResults;
-    std::shared_ptr<workers::IManager> mManager;
+    std::shared_ptr<tasks::IManager> mManager;
     std::shared_ptr<ParallelTerminalTask> mTerminalTask;
 };
 
 /**
  * Task which collects a set of futures from parallel tasks.
  */
-class ASYNC_API ParallelTerminalTask : public workers::Task {
+class ASYNC_CPP_ASYNC_API ParallelTerminalTask : public tasks::Task {
 public:
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.

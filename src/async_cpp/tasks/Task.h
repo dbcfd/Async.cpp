@@ -1,17 +1,17 @@
 #pragma once
-#include "workers/Platform.h"
+#include "async_cpp/tasks/Platform.h"
 
 #include <atomic>
 #include <functional>
 #include <future>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 /**
  * Interface for tasks which will be run by a worker. If a task fails to perform successfully, completion future will be marked as false.
  */
-class WORKERS_API Task {
+class ASYNC_CPP_TASKS_API Task {
 public:
     Task();
     virtual ~Task();

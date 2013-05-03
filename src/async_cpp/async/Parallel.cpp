@@ -1,8 +1,8 @@
-#include "async/Parallel.h"
-#include "async/AsyncResult.h"
-#include "async/ParallelTask.h"
+#include "async_cpp/async/Parallel.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/ParallelTask.h"
 
-#include "workers/IManager.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <assert.h>
 #include <atomic>
@@ -11,7 +11,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncFuture(void)>>& tasks)
+Parallel::Parallel(std::shared_ptr<tasks::IManager> manager, const std::vector<std::function<AsyncFuture(void)>>& tasks)
     : mManager(manager), mOps(tasks)
 {
     assert(nullptr != manager);
@@ -19,7 +19,7 @@ Parallel::Parallel(std::shared_ptr<workers::IManager> manager, const std::vector
 }
 
 //------------------------------------------------------------------------------
-Parallel::Parallel(std::shared_ptr<workers::IManager> manager, std::function<AsyncFuture(void)> tasks[], const size_t nbTasks)
+Parallel::Parallel(std::shared_ptr<tasks::IManager> manager, std::function<AsyncFuture(void)> tasks[], const size_t nbTasks)
     : mManager(manager)
 {
     assert(nullptr != manager);

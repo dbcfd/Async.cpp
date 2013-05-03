@@ -1,5 +1,5 @@
 #pragma once
-#include "workers/Platform.h"
+#include "async_cpp/tasks/Platform.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -8,14 +8,14 @@
 #include <thread>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 class Task;
 
 /**
  * Object which holds a thread to run tasks in, obtaining additional tasks via its taskCompleteFunction if available.
  */
-class WORKERS_API Worker {
+class ASYNC_CPP_TASKS_API Worker {
 public:
     /**
      * Create a worker (and its underlying thread) to run tasks, with a function to invoke everytime it finishes running a task

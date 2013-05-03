@@ -1,6 +1,6 @@
 #pragma once
-#include "async/Platform.h"
-#include "async/Async.h"
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/async/Async.h"
 
 #include <memory>
 
@@ -10,7 +10,7 @@ namespace async {
 /**
  * Store the result of an asynchronous operation, either as an error, or data.
  */
-class ASYNC_API AsyncResult {
+class ASYNC_CPP_ASYNC_API AsyncResult {
 public:
     /**
      * Create a result that was an error

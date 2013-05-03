@@ -1,10 +1,10 @@
 #pragma once
-#include "async/Platform.h"
-#include "async/Async.h"
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/async/Async.h"
 
 namespace async_cpp {
 
-namespace workers {
+namespace tasks {
 class IManager;
 }
 
@@ -14,21 +14,21 @@ namespace async {
  * Run a set of tasks in parallel using a manager, optionally executing a task when the set of parallel tasks is complete.
  * A future is created which indicates when this set of operations (including optional completion task) is completed.
  */
-class ASYNC_API Parallel {
+class ASYNC_CPP_ASYNC_API Parallel {
 public:
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
      * @param tasks Vector of tasks that will be run
      */
-    Parallel(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncFuture(void)>>& tasks);
+    Parallel(std::shared_ptr<tasks::IManager> manager, const std::vector<std::function<AsyncFuture(void)>>& tasks);
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
      * @param tasks Array of tasks that will be run
      * @param nbTasks Number of tasks in array
      */
-    Parallel(std::shared_ptr<workers::IManager> manager, std::function<AsyncFuture(void)> tasks[], const size_t nbTasks);
+    Parallel(std::shared_ptr<tasks::IManager> manager, std::function<AsyncFuture(void)> tasks[], const size_t nbTasks);
 
     /**
      * Run the set of tasks in parallel, calling a task when the parallel tasks have completed.
@@ -45,7 +45,7 @@ public:
 
 private:
     std::vector<std::function<AsyncFuture(void)>> mOps;
-    std::shared_ptr<workers::IManager> mManager;
+    std::shared_ptr<tasks::IManager> mManager;
 };
 
 //inline implementations

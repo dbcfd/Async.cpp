@@ -1,17 +1,17 @@
 #pragma once
-#include "workers/Platform.h"
+#include "async_cpp/tasks/Platform.h"
 
 #include <memory>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 class Task;
 
 /**
  * Interface for managers, allowing replacement/mocks.
  */
-class WORKERS_API IManager {
+class ASYNC_CPP_TASKS_API IManager {
 public:
     IManager();
     virtual ~IManager();

@@ -1,8 +1,8 @@
-#include "async/Series.h"
-#include "async/AsyncResult.h"
-#include "async/SeriesTask.h"
+#include "async_cpp/async/Series.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/SeriesTask.h"
 
-#include "workers/IManager.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <assert.h>
 
@@ -10,7 +10,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-Series::Series(std::shared_ptr<workers::IManager> manager, const std::vector<std::function<AsyncFuture(AsyncResult&)>>& ops)
+Series::Series(std::shared_ptr<tasks::IManager> manager, const std::vector<std::function<AsyncFuture(AsyncResult&)>>& ops)
     : mManager(manager), mOperations(ops)
 {
     assert(manager);
@@ -18,7 +18,7 @@ Series::Series(std::shared_ptr<workers::IManager> manager, const std::vector<std
 }
 
 //------------------------------------------------------------------------------
-Series::Series(std::shared_ptr<workers::IManager> manager, std::function<AsyncFuture(AsyncResult&)>* ops, const size_t nbOps)
+Series::Series(std::shared_ptr<tasks::IManager> manager, std::function<AsyncFuture(AsyncResult&)>* ops, const size_t nbOps)
     : mManager(manager)
 {
     assert(manager);

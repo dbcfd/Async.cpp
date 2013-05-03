@@ -1,7 +1,7 @@
-#include "workers/BasicTask.h"
+#include "async_cpp/tasks/BasicTask.h"
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 //------------------------------------------------------------------------------
 BasicTask::BasicTask(std::function<void(void)> functionToRun) : mFunctionToRun(functionToRun)

@@ -7,10 +7,10 @@
 //windows defines
 #if defined(BUILD_SHARED_LIBS)
 #if defined(Async_EXPORTS)
-#define ASYNC_API __declspec(dllexport)
+#define ASYNC_CPP_ASYNC_API __declspec(dllexport)
 #else
-#define ASYNC_API __declspec(dllimport)
+#define ASYNC_CPP_ASYNC_API __declspec(dllimport)
 #endif
 #else
-#define ASYNC_API
+#define ASYNC_CPP_ASYNC_API
 #endif

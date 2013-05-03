@@ -1,7 +1,7 @@
-#include "async/SeriesTask.h"
-#include "async/AsyncResult.h"
-#include "workers/BasicTask.h"
-#include "workers/IManager.h"
+#include "async_cpp/async/SeriesTask.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/tasks/BasicTask.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <assert.h>
 
@@ -9,7 +9,7 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-ISeriesTask::ISeriesTask(std::shared_ptr<workers::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult)
+ISeriesTask::ISeriesTask(std::shared_ptr<tasks::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult)
     : mManager(mgr), mGenerateResultFunc(generateResult), mHasForwardedFuture(false)
 {
     assert(mgr);
@@ -34,7 +34,7 @@ AsyncResult ISeriesTask::getResult()
 }
 
 //------------------------------------------------------------------------------
-SeriesTask::SeriesTask(std::shared_ptr<workers::IManager> mgr, 
+SeriesTask::SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<AsyncFuture(AsyncResult&)> generateResult,
         std::shared_ptr<ISeriesTask> nextTask)
     : ISeriesTask(mgr, generateResult), mNextTask(nextTask)
@@ -74,7 +74,7 @@ void SeriesTask::performSpecific()
 }
 
 //------------------------------------------------------------------------------
-SeriesCollectTask::SeriesCollectTask(std::shared_ptr<workers::IManager> mgr,
+SeriesCollectTask::SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr,
                                        std::function<AsyncFuture(AsyncResult&)> generateResult)
                                        : ISeriesTask(mgr, generateResult), mTerminalTask(std::make_shared<SeriesTerminalTask>())
 {

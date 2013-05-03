@@ -1,10 +1,10 @@
-#include "workers/Worker.h"
-#include "workers/Task.h"
+#include "async_cpp/tasks/Worker.h"
+#include "async_cpp/tasks/Task.h"
 
 #include <assert.h>
 
 namespace async_cpp {
-namespace workers {
+namespace tasks {
 
 //------------------------------------------------------------------------------
 Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(false), mTaskCompleteFunction(taskCompleteFunction)
