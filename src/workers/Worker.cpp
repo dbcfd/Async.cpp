@@ -35,7 +35,10 @@ void Worker::shutdown()
     
     if(wasRunning)
     {
-        mTaskSignal.notify_all();
+        {
+            std::unique_lock<std::mutex> lock(mTaskMutex);
+            mTaskSignal.notify_all();
+        }
         mThread->join();
         if(nullptr != mTaskToRun)
         {
