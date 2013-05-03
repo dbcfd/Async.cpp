@@ -45,7 +45,14 @@ void ParallelCollectTask::performSpecific()
     std::vector<AsyncResult> results;
     for(auto& future : mTaskResults)
     {
-        results.emplace_back(future.get());
+        try 
+        {
+            results.emplace_back(future.get());
+        }
+        catch(std::future_error& ex)
+        {
+            results.emplace_back(AsyncResult(ex.what()));
+        }
     }
     AsyncFuture futureToForward;
     try {
@@ -68,7 +75,16 @@ ParallelTerminalTask::ParallelTerminalTask()
 //------------------------------------------------------------------------------
 void ParallelTerminalTask::performSpecific()
 {
-    mPromise.set_value(mGeneratedFuture.get());
+    AsyncResult res;
+    try
+    {
+        res = mGeneratedFuture.get();
+    }
+    catch(std::future_error& ex)
+    {
+        res = AsyncResult(ex.what());
+    }
+    mPromise.set_value(res);
 }
 
 }
