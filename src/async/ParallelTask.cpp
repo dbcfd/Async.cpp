@@ -19,6 +19,12 @@ ParallelTask::ParallelTask(std::shared_ptr<workers::IManager> mgr,
 }
 
 //------------------------------------------------------------------------------
+ParallelTask::~ParallelTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
 void ParallelTask::performSpecific()
 {
     auto tasksRemaining = mCollectTask->notifyTaskCompletion(mGenerateResultFunc());
@@ -37,6 +43,12 @@ ParallelCollectTask::ParallelCollectTask(std::shared_ptr<workers::IManager> mgr,
 {
     assert(mgr);
     mTaskResults.reserve(tasksOutstanding);
+}
+
+//------------------------------------------------------------------------------
+ParallelCollectTask::~ParallelCollectTask()
+{
+
 }
 
 //------------------------------------------------------------------------------
@@ -73,6 +85,12 @@ ParallelTerminalTask::ParallelTerminalTask()
 }
 
 //------------------------------------------------------------------------------
+ParallelTerminalTask::~ParallelTerminalTask()
+{
+
+}
+
+//------------------------------------------------------------------------------
 void ParallelTerminalTask::performSpecific()
 {
     AsyncResult res;
@@ -85,6 +103,21 @@ void ParallelTerminalTask::performSpecific()
         res = AsyncResult(ex.what());
     }
     mPromise.set_value(res);
+}
+
+//------------------------------------------------------------------------------
+AsyncFuture ParallelTerminalTask::getFuture()
+{
+    AsyncFuture ret;
+    try 
+    {
+        ret = mPromise.get_future();
+    }
+    catch(std::future_error& error)
+    {
+        ret = AsyncResult(error.what()).asFulfilledFuture();
+    }
+    return ret;
 }
 
 }

@@ -162,5 +162,20 @@ void SeriesTerminalTask::performSpecific()
     mPromise.set_value(res);
 }
 
+//------------------------------------------------------------------------------
+AsyncFuture SeriesTerminalTask::getFuture()
+{
+    AsyncFuture ret;
+    try 
+    {
+        ret = mPromise.get_future();
+    }
+    catch(std::future_error& error)
+    {
+        ret = AsyncResult(error.what()).asFulfilledFuture();
+    }
+    return ret;
+}
+
 }
 }

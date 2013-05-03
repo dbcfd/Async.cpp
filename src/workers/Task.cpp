@@ -4,9 +4,9 @@ namespace async_cpp {
 namespace workers {
 
 //------------------------------------------------------------------------------
-Task::Task() : mTaskCompletePromise(), mTaskCompleteFuture(mTaskCompletePromise.get_future()), mHasFulfilledPromise(false)
+Task::Task() : mHasFulfilledPromise(false)
 {
-
+    mTaskCompleteFuture = mTaskCompletePromise.get_future();
 }
 
 //------------------------------------------------------------------------------

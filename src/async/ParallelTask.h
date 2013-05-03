@@ -25,6 +25,7 @@ public:
     ParallelTask(std::shared_ptr<workers::IManager> mgr, 
         std::function<AsyncFuture(void)> generateResult,
         std::shared_ptr<ParallelCollectTask> parallelCollectTask);
+    virtual ~ParallelTask();
 
 protected:
     virtual void performSpecific();
@@ -49,6 +50,7 @@ public:
     ParallelCollectTask(std::shared_ptr<workers::IManager> mgr,
         const size_t tasksOutstanding, 
         std::function<AsyncFuture(std::vector<AsyncResult>&)> generateResult);
+    virtual ~ParallelCollectTask();
 
     inline size_t notifyTaskCompletion(AsyncFuture&& futureResult);
     inline AsyncFuture getFuture();
@@ -74,9 +76,11 @@ public:
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     ParallelTerminalTask();
+    virtual ~ParallelTerminalTask();
+
+    AsyncFuture getFuture();
 
     inline void forwardResult(AsyncFuture&& futureResult);
-    inline AsyncFuture getFuture();
 protected:
     virtual void performSpecific();
 
@@ -105,12 +109,6 @@ AsyncFuture ParallelCollectTask::getFuture()
 void ParallelTerminalTask::forwardResult(AsyncFuture&& futureResult)
 {
     mGeneratedFuture = std::move(futureResult);
-}
-
-//------------------------------------------------------------------------------
-AsyncFuture ParallelTerminalTask::getFuture()
-{
-    return mPromise.get_future();
 }
 
 }

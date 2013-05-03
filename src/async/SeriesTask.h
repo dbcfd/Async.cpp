@@ -83,9 +83,9 @@ public:
     virtual ~SeriesTerminalTask();
 
     void cancel();
+    AsyncFuture getFuture();
 
     inline void forwardFuture(AsyncFuture&& future);
-    inline AsyncFuture getFuture();
 
 protected:
     virtual void performSpecific();
@@ -114,12 +114,6 @@ AsyncFuture SeriesCollectTask::getFuture()
 void SeriesTerminalTask::forwardFuture(AsyncFuture&& forwardedFuture)
 {
     mForwardedFuture = std::move(forwardedFuture);
-}
-
-//------------------------------------------------------------------------------
-AsyncFuture SeriesTerminalTask::getFuture()
-{
-    return mPromise.get_future();
 }
 
 }
