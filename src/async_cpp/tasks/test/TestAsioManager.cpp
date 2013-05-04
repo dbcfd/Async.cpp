@@ -1,3 +1,4 @@
+#ifdef NOT_HAS_BOOST
 #include "async_cpp/tasks/Manager.h"
 #include "async_cpp/tasks/Worker.h"
 #include "async_cpp/tasks/Task.h"
@@ -297,3 +298,5 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         //make sure cleanup shuts down correctly
     }
 }
+
+#endif

@@ -10,44 +10,49 @@ namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
-Manager::Manager(const size_t nbWorkers) : IManager(), mRunning(true), mNbWorkers(nbWorkers)
+Manager::Manager(const size_t nbWorkers) : IManager()
 {
     assert(nbWorkers > 0);
+    mRunning = true;
+    mTasksOutstanding = 0;
 
-    auto workerDoneFunction = [this](std::shared_ptr<Worker> worker) -> void {
+    mTaskCompleteFunction = [this]() -> void {
+        mTasksOutstanding.fetch_sub(1);
+        mTaskFinishedSignal.notify_all();
+    };
+
+
+    mWorkerDoneFunction = [this](std::shared_ptr<Worker> worker) -> void {
         //grab the next task if available, otherwise add our worker to a wait list
         std::shared_ptr<Task> task;
-        if(isRunning())
+        if(mRunning)
         {
-            {
-                std::unique_lock<std::mutex> lock(mMutex);
+            std::unique_lock<std::mutex> lock(mMutex);
 
-                if(mTasks.empty())
-                {
-                    mWorkers.push(worker);
-                }
-                else
-                {
-                    //task available, run it
-                    task.swap(mTasks.front());
-                    mTasks.pop();
-                }
+            if(mTasks.empty())
+            {
+                mAvailableWorkers.push(worker);
+            }
+            else
+            {
+                //task available, run it
+                task = mTasks.front();
+                mTasks.pop();
             }
         }
-        if(nullptr != task)
+        if(task)
         {
+            mTasksOutstanding.fetch_add(1);
             worker->runTask(task);
-        }
-        else
-        {   
-            mWorkerFinishedSignal.notify_one();
         }
     };
 
+    mWorkers.reserve(nbWorkers);
     for(size_t workerIdx = 0; workerIdx < nbWorkers; ++workerIdx)
     {
-        auto worker = std::make_shared<Worker>(workerDoneFunction);
-        mWorkers.push(worker);
+        auto worker = std::make_shared<Worker>(std::cref(mWorkerDoneFunction), std::cref(mTaskCompleteFunction));
+        mWorkers.emplace_back(worker); //use workers to guarantee workers aren't deleted until we want them to be
+        mAvailableWorkers.push(worker);
     }
 }
 
@@ -80,17 +85,23 @@ void Manager::shutdown()
             }
 
             //wait for all running tasks to finish
-            mWorkerFinishedSignal.wait(lock, [this]()->bool {
-                return mWorkers.size() == mNbWorkers;
+            mTaskFinishedSignal.wait(lock, [this]()->bool {
+                return (0 == mTasksOutstanding.load());
             } );
         }
 
         while(!tasks.empty())
         {
-            run(tasks.front());
+            tasks.front()->failToPerform();
             tasks.pop();
         }
 
+        while(!mAvailableWorkers.empty())
+        {
+            mAvailableWorkers.pop();
+        }
+        mWorkers.clear(); //everything is finished, now we can clean up our workers
+        
         mShutdownSignal.notify_all();
     }
 }
@@ -100,8 +111,8 @@ void Manager::waitForTasksToComplete()
 {
     std::unique_lock<std::mutex> lock(mMutex);
 
-    mWorkerFinishedSignal.wait(lock, [this]()->bool {
-        return (mWorkers.size() == mNbWorkers) && mTasks.empty();
+    mTaskFinishedSignal.wait(lock, [this]()->bool {
+        return (0 == mTasksOutstanding.load() && mTasks.empty());
     } );
 }
 
@@ -116,7 +127,7 @@ void Manager::run(std::shared_ptr<Task> task)
         std::shared_ptr<Worker> worker;
         {
             std::unique_lock<std::mutex> lock(mMutex);
-            if(mWorkers.empty())
+            if(mAvailableWorkers.empty())
             {
                 //no workers available, queue the task
                 mTasks.push(std::move(task));
@@ -124,12 +135,13 @@ void Manager::run(std::shared_ptr<Task> task)
             else
             {
                 //worker available, grab it, and run task
-                worker = mWorkers.front();
-                mWorkers.pop();
+                worker = mAvailableWorkers.front();
+                mAvailableWorkers.pop();
             }
         }
         if(worker)
         {
+            mTasksOutstanding.fetch_add(1);
             worker->runTask(task);
         }
     }

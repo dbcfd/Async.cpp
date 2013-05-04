@@ -8,8 +8,8 @@ namespace tasks {
 //------------------------------------------------------------------------------
 Task::Task()
 {
-    mTask = std::packaged_task<bool(bool, std::function<void(void)>)>(
-        [this](bool isFailing, std::function<void(void)> completeFunction)-> bool 
+    mTask = std::packaged_task<bool(bool)>(
+        [this](bool isFailing)-> bool 
         {
             bool successful = false;
             if(!isFailing)
@@ -21,10 +21,8 @@ Task::Task()
                 }
                 catch(std::exception& ex)
                 {
-                    std::cout << "Task: Error when running, " << ex.what() << std::endl;
+                    onException(ex);
                 }
-    
-                completeFunction();
             }
             return successful;
         } );
@@ -48,9 +46,15 @@ Task::~Task()
 }
 
 //------------------------------------------------------------------------------
+void Task::onException(const std::exception&)
+{
+    //do nothing
+}
+
+//------------------------------------------------------------------------------
 void Task::failToPerform()
 {
-    mTask(true, [](){});
+    mTask(true);
 }
 
 //------------------------------------------------------------------------------
@@ -61,9 +65,9 @@ void Task::reset()
 }
 
 //------------------------------------------------------------------------------
-void Task::perform(std::function<void(void)> completeFunction)
+void Task::perform()
 {
-    mTask(false, completeFunction);
+    mTask(false);
 }
 
 }

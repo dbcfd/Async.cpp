@@ -32,18 +32,66 @@ private:
 
 };
 
-TEST(WORKERS_TEST, TEST_TASK)
+TEST(TASKS_TEST, BASIC_TASK)
 {
+    TestTask task;
+
+    EXPECT_FALSE(task.wasPerformed);
+
+    task.perform();
+
+    EXPECT_TRUE(task.wasPerformed);
+    EXPECT_TRUE(task.wasSuccessful());
+}
+
+class RepeatedTask : public Task {
+public:
+    RepeatedTask() : wasPerformed(false), wasPerformedTwice(false)
     {
-        TestTask task;
 
-        ASSERT_FALSE(task.wasPerformed);
-
-        task.perform([](){});
-
-        ASSERT_TRUE(task.wasPerformed);
-        ASSERT_TRUE(task.wasCompletedSuccessfully());
     }
+
+    virtual ~RepeatedTask()
+    {
+
+    }
+
+    bool wasPerformed;
+    bool wasPerformedTwice;
+private:
+    virtual void performSpecific()
+    {
+        if(wasPerformed)
+        {
+            wasPerformedTwice = true;
+        }
+        wasPerformed = true;
+    }
+};
+
+TEST(TASKS_TEST, REPEATED_TASK)
+{
+    RepeatedTask task;
+
+    EXPECT_FALSE(task.wasPerformed);
+    EXPECT_FALSE(task.wasPerformedTwice);   
+
+    task.perform();
+
+    EXPECT_TRUE(task.wasPerformed);
+    EXPECT_FALSE(task.wasPerformedTwice);
+    EXPECT_TRUE(task.wasSuccessful());
+
+    task.reset();
+
+    EXPECT_TRUE(task.wasPerformed);
+    EXPECT_FALSE(task.isComplete());
+
+    task.perform();
+
+    EXPECT_TRUE(task.wasPerformed);
+    EXPECT_TRUE(task.wasPerformedTwice);
+    EXPECT_TRUE(task.wasSuccessful());
 }
 
 class TestExceptionTask : public Task
@@ -67,15 +115,13 @@ private:
 
 };
 
-TEST(WORKERS_TEST, TEST_EXCEPTION_TASK)
+TEST(TASKS_TEST, EXCEPTION_TASK)
 {
-    {
-        TestExceptionTask task;
+    TestExceptionTask task;
 
-        task.perform([](){});
+    task.perform();
 
-        ASSERT_FALSE(task.wasCompletedSuccessfully()); //task failed due to exception
-    }
+    ASSERT_FALSE(task.wasSuccessful()); //task failed due to exception
 }
 
 class WorkerComplete
@@ -94,34 +140,35 @@ public:
     bool hasCompleted;
 };
 
-TEST(WORKERS_TEST, TEST_WORKER)
+TEST(TASKS_TEST, TEST_WORKER)
 {
     {
         //setup worker
         WorkerComplete workerComplete;
         auto completeFunction = [&workerComplete](std::shared_ptr<Worker> worker) -> void { workerComplete.complete(); };
-        auto worker = std::make_shared<Worker>(completeFunction);
+        auto worker = std::make_shared<Worker>(completeFunction, [](){});
 
         //setup and run task
-        auto task1(std::make_shared<TestTask>());
+        auto task1 = std::make_shared<TestTask>();
         worker->runTask(task1);
 
         //check that task was run
-        ASSERT_TRUE(task1->wasCompletedSuccessfully());
+        ASSERT_TRUE(task1->wasSuccessful());
 
         //wait for worker to finish
-        worker.reset();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         ASSERT_TRUE(workerComplete.hasCompleted);
 
         //worker should shutdown and cleanup correctly
+        worker.reset();
     }
 
     {
         //setup worker
         WorkerComplete workerComplete;
         auto completeFunction = [&workerComplete](std::shared_ptr<Worker> worker) -> void { workerComplete.complete(); };
-        auto worker = std::make_shared<Worker>(completeFunction);
+        auto worker = std::make_shared<Worker>(completeFunction, [](){});
 
         //shutdown worker at same time as running task
         auto task1 = std::make_shared<TestTask>();
@@ -133,7 +180,7 @@ TEST(WORKERS_TEST, TEST_WORKER)
     }
 }
 
-TEST(WORKERS_TEST, MANAGER_TEST)
+TEST(TASKS_TEST, MANAGER_TEST)
 {
     {
         //setup a bunch of tasks
@@ -146,16 +193,16 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         //less workers than tasks, make sure they can go back and grab tasks
         Manager manager(2);
 
-        for(std::vector< std::shared_ptr<Task> >::const_iterator task = tasks.begin(); task != tasks.end(); ++task)
+        for(auto task : tasks)
         {
-            manager.run((*task));
+            manager.run(task);
         }
 
         bool tasksCompleted = true;
 
         for(auto task : tasks)
         {
-            tasksCompleted &= task->wasCompletedSuccessfully();
+            tasksCompleted &= task->wasSuccessful();
         }
 
         ASSERT_TRUE(tasksCompleted);
@@ -183,7 +230,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         manager.run(tasks[3]);
 
         {
-            tasksCompleted &= tasks[0]->wasCompletedSuccessfully();
+            tasksCompleted &= tasks[0]->wasSuccessful();
         }
 
         //run some more
@@ -193,7 +240,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         manager.run(tasks[7]);
         manager.run(tasks[8]);
         {
-            tasksCompleted &= tasks[3]->wasCompletedSuccessfully();
+            tasksCompleted &= tasks[3]->wasSuccessful();
         }
 
         manager.waitForTasksToComplete();
@@ -202,7 +249,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
 
         for(size_t i = 0; i < 7; ++i)
         {
-            tasksCompleted &= tasks[tasksToCheck[i]]->wasCompletedSuccessfully();
+            tasksCompleted &= tasks[tasksToCheck[i]]->wasSuccessful();
         }
 
         ASSERT_TRUE(tasksCompleted);
@@ -212,7 +259,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         manager.run(tasks[9]);
 
         {
-            ASSERT_FALSE(tasks[9]->wasCompletedSuccessfully());
+            ASSERT_FALSE(tasks[9]->wasSuccessful());
         }
 
         //make sure cleanup shuts down correctly

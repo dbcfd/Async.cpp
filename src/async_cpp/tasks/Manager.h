@@ -49,16 +49,19 @@ public:
 protected:
     void run();
 
-    size_t mNbWorkers;
-    std::queue< std::shared_ptr<Worker> > mWorkers;
+    std::vector< std::shared_ptr<Worker> > mWorkers;
+    std::queue< std::shared_ptr<Worker> > mAvailableWorkers;
 
     std::mutex mMutex;
-    std::condition_variable mWorkerFinishedSignal;
+    std::condition_variable mTaskFinishedSignal;
     std::condition_variable mShutdownSignal;
+    std::function<void(std::shared_ptr<Worker>)> mWorkerDoneFunction;
+    std::function<void(void)> mTaskCompleteFunction;
 
     std::queue< std::shared_ptr<Task> > mTasks;
 
-    std::atomic<bool> mRunning;
+    std::atomic_bool mRunning;
+    std::atomic_size_t mTasksOutstanding;
 };
 
 //inline implementations

@@ -2,63 +2,48 @@
 #include "async_cpp/tasks/Task.h"
 
 #include <assert.h>
+#include <iostream>
 
 namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
-Worker::Worker(std::function<void (Worker*)> taskCompleteFunction) : mRunning(false), mTaskCompleteFunction(taskCompleteFunction)
+Worker::Worker(std::function<void (std::shared_ptr<Worker>)> askForTaskFunction, std::function<void(void)> taskCompleteFunction) 
+    : mAskForTaskFunction(askForTaskFunction), mTaskCompleteFunction(taskCompleteFunction)
 {
-    mThread = std::unique_ptr<std::thread>(new std::thread(&Worker::run, this));
-    std::mutex mutex;
-    std::unique_lock<std::mutex> lock(mutex);
-    mWorkerReadySignal.wait(lock, [this]()->bool {
-        return (mRunning == true);
+    mRunning = false;
+    mThread = std::thread(&Worker::run, this);
+
+    std::unique_lock<std::mutex> lock(mTaskMutex);
+    mReadySignal.wait(lock, [this]()->bool {
+        return mRunning;
     } );
 }
 
 //------------------------------------------------------------------------------
 Worker::~Worker()
-{
-    shutdown();
-    std::mutex mutex;
-    std::unique_lock<std::mutex> lock(mutex);
-    mShutdownSignal.wait(lock, [this]()->bool {
-        return (nullptr == mThread);
-    } );
-}
-
-//------------------------------------------------------------------------------
-void Worker::shutdown()
-{
-    bool wasRunning = mRunning.exchange(false);
-    
-    if(wasRunning)
+{  
+    mRunning.exchange(false);
     {
-        {
-            std::unique_lock<std::mutex> lock(mTaskMutex);
-            mTaskSignal.notify_all();
-        }
-        mThread->join();
-        if(nullptr != mTaskToRun)
-        {
-            mTaskToRun->failToPerform();
-            mTaskCompleteFunction(this);
-        }
-        mThread = nullptr;
-        mShutdownSignal.notify_one();
+        std::lock_guard<std::mutex> lock(mTaskMutex);
+        mTaskSignal.notify_all();
+    }
+
+    if(mThread.joinable())
+    {
+        mThread.join();
     }
 }
 
 //------------------------------------------------------------------------------
 void Worker::runTask(std::shared_ptr<Task> task)
 {
-    assert(nullptr != task);
+    assert(task);
 
-    if(mRunning)
+    if(mRunning.load())
     {
         {
-            std::unique_lock<std::mutex> lock(mTaskMutex);
+            std::lock_guard<std::mutex> lock(mTaskMutex);
             mTaskToRun = task;
         }
 
@@ -66,35 +51,57 @@ void Worker::runTask(std::shared_ptr<Task> task)
     }
     else
     {
-        task->failToPerform();
-        mTaskCompleteFunction(this);
+        try
+        {
+            task->failToPerform();
+        }
+        catch(std::runtime_error& ex)
+        {
+            std::cerr << "Worker::runTask(): " << ex.what() << std::endl;
+        }
+        mTaskCompleteFunction();
     }
 }
 
 //------------------------------------------------------------------------------
 void Worker::run()
 {
+    std::unique_lock<std::mutex> lock(mTaskMutex);
     mRunning.exchange(true);
-    while(mRunning)
+    mReadySignal.notify_all();
+
+    while(mRunning.load())
     {
         std::shared_ptr<Task> taskToRun;
         {
-            std::unique_lock<std::mutex> lock(mTaskMutex);
-            mWorkerReadySignal.notify_all();
-
             //wait until we have a task, or we're not running
             mTaskSignal.wait(lock, [this]()->bool {
                 return (nullptr != mTaskToRun) || (mRunning == false);
             } );
 
             taskToRun.swap(mTaskToRun);
+            lock.unlock();
         }
 
-        if(nullptr != taskToRun)
+        if(taskToRun)
         {
-            taskToRun->perform([](){});
-            mTaskCompleteFunction(this);
+            if(mRunning.load())
+            {
+                taskToRun->perform();
+            }
+            else
+            {
+                taskToRun->failToPerform();
+            }
+            mTaskCompleteFunction();
+            if(mRunning.load())
+            {
+                mAskForTaskFunction(shared_from_this());
+            }
+
         }
+
+        lock.lock();
     }
 }
 

@@ -19,7 +19,7 @@ public:
      * Create a worker (and its underlying thread) to run tasks, with a function to invoke everytime it finishes running a task
      * @param taskCompleteFunction Function object to invoke when task is finished
      */
-    Worker(std::function<void (std::shared_ptr<Worker>)> taskCompleteFunction);
+    Worker(std::function<void (std::shared_ptr<Worker>)> askForTaskFunction, std::function<void(void)> taskCompleteFunction);
     virtual ~Worker();
 
     /**
@@ -40,8 +40,10 @@ private:
     std::mutex mTaskMutex;
     std::shared_ptr<Task> mTaskToRun;
     std::condition_variable mTaskSignal;
-    std::function<void (std::shared_ptr<Worker>)> mTaskCompleteFunction;
-    std::atomic<bool> mRunning;
+    std::condition_variable mReadySignal;
+    std::function<void(void)> mTaskCompleteFunction;
+    std::function<void (std::shared_ptr<Worker>)> mAskForTaskFunction;
+    std::atomic_bool mRunning;
 };
 
 //inline implementations

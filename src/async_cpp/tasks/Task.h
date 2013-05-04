@@ -30,9 +30,8 @@ public:
 
     /**
      * Perform the behavior of this task, invoking a function after the task complete promise is fulfilled.
-     * @param afterCompleteFunction Function to invoke after task has fulfilled its promise
      */
-    void perform(std::function<void(void)> afterCompleteFunction);
+    void perform();
 
     /**
      * Mark this task as a failure by fulfilling its promise with false.
@@ -46,18 +45,19 @@ public:
 
 protected:
     virtual void performSpecific() = 0;
+    virtual void onException(const std::exception& ex);
 
 private:
     std::atomic<bool> mHasFulfilledPromise;
     std::future<bool> mTaskCompleteFuture;
-    std::packaged_task<bool(bool, std::function<void(void)>)> mTask;
+    std::packaged_task<bool(bool)> mTask;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 bool Task::isComplete()
 {
-#ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specified _Is_ready
+#ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specific _Is_ready
     return mTaskCompleteFuture._Is_ready();
 #else
     return (std::future_status::ready == mTaskCompleteFuture.wait_for(std::chrono::milliseconds(0)));
