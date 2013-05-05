@@ -8,6 +8,12 @@ namespace tasks {
 //------------------------------------------------------------------------------
 Task::Task()
 {
+    buildMembers();
+}
+
+//------------------------------------------------------------------------------
+void Task::buildMembers()
+{
     mTask = std::packaged_task<bool(bool)>(
         [this](bool isFailing)-> bool 
         {
@@ -55,13 +61,6 @@ void Task::onException(const std::exception&)
 void Task::failToPerform()
 {
     mTask(true);
-}
-
-//------------------------------------------------------------------------------
-void Task::reset()
-{
-    mTask.reset();
-    mTaskCompleteFuture = mTask.get_future();
 }
 
 //------------------------------------------------------------------------------

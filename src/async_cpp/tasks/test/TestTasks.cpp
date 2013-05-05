@@ -51,6 +51,11 @@ public:
 
     }
 
+    RepeatedTask(RepeatedTask&& other) : Task(), wasPerformed(other.wasPerformed), wasPerformedTwice(other.wasPerformedTwice)
+    {
+
+    }
+
     virtual ~RepeatedTask()
     {
 
@@ -82,16 +87,16 @@ TEST(TASKS_TEST, REPEATED_TASK)
     EXPECT_FALSE(task.wasPerformedTwice);
     EXPECT_TRUE(task.wasSuccessful());
 
-    task.reset();
+    RepeatedTask task2(std::move(task));
 
-    EXPECT_TRUE(task.wasPerformed);
-    EXPECT_FALSE(task.isComplete());
+    EXPECT_TRUE(task2.wasPerformed);
+    EXPECT_FALSE(task2.isComplete());
 
-    task.perform();
+    task2.perform();
 
-    EXPECT_TRUE(task.wasPerformed);
-    EXPECT_TRUE(task.wasPerformedTwice);
-    EXPECT_TRUE(task.wasSuccessful());
+    EXPECT_TRUE(task2.wasPerformed);
+    EXPECT_TRUE(task2.wasPerformedTwice);
+    EXPECT_TRUE(task2.wasSuccessful());
 }
 
 class TestExceptionTask : public Task

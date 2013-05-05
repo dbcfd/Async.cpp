@@ -38,17 +38,13 @@ public:
      */
     void failToPerform();
 
-    /**
-     * Reset this task, allowing it to be run on the manager again
-     */
-    void reset();
-
 protected:
     virtual void performSpecific() = 0;
     virtual void onException(const std::exception& ex);
 
 private:
-    std::atomic<bool> mHasFulfilledPromise;
+    void buildMembers();
+
     std::future<bool> mTaskCompleteFuture;
     std::packaged_task<bool(bool)> mTask;
 };
