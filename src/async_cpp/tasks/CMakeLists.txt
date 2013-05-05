@@ -1,18 +1,24 @@
 set (TARGET Tasks)
 
 SET (DEPENDENCIES)
-
-if(Boost_FOUND)
-	add_definitions("-DHAS_BOOST")
-	include_directories(${Boost_INCLUDE_DIRS})
-	set(DEPENDENCIES ${DEPENDENCIES} ${Boost_LIBRARIES})
-endif()
-
 file(GLOB HEADERS "*.h")
 
 file(GLOB SOURCES "*.cpp")
 
-add_library (${TARGET} ${LIBRARY_BUILD_TYPE} ${HEADERS} ${SOURCES}) 
+add_library (${TARGET} ${HEADERS} ${SOURCES}) 
+
+include(DllInstaller)
+
+if(Boost_FOUND)
+	add_definitions("-DHAS_BOOST -D_WIN32_WINNT=0x0501")
+	include_directories(${Boost_INCLUDE_DIRS})
+	set(DEPENDENCIES ${DEPENDENCIES} ${Boost_LIBRARIES})
+	if(BUILD_SHARED_LIBS)
+		add_definitions("-DBOOST_ALL_DYN_LINK")
+		_COPY_DLLS(${TARGET} ${Boost_LIBRARIES})
+	endif()
+endif()
+
 target_link_libraries (${TARGET} ${DEPENDENCIES})
 
 set_target_properties (${TARGET} PROPERTIES

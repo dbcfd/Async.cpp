@@ -11,17 +11,16 @@ namespace tasks {
  */
 class ASYNC_CPP_TASKS_API IManager {
 public:
-    IManager();
     virtual ~IManager();
 
     /**
-     * Run a task on the first available worker, queueing if none are available.
+     * Run a task in this manager at next available time. If manager is shutdown, task will fail to perform.
      * @param task Task to run
      */
     virtual void run(std::shared_ptr<Task> task) = 0;
 
     /**
-     * Shutdown this manager, including all workers. Any queued tasks will be marked as failing to complete.
+     * Shutdown this manager. Any queued tasks will be marked as failing to complete.
      */
     virtual void shutdown() = 0;
 

@@ -29,7 +29,7 @@ public:
     inline bool wasSuccessful();
 
     /**
-     * Perform the behavior of this task, invoking a function after the task complete promise is fulfilled.
+     * Perform the behavior of this task
      */
     void perform();
 

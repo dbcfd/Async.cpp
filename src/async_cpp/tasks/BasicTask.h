@@ -1,5 +1,5 @@
 #pragma once
-#include "async_cpp/tasks/Platform.h"
+#include "async_cpp/tasks/Tasks.h"
 #include "async_cpp/tasks/Task.h"
 
 #include <functional>
@@ -8,7 +8,7 @@ namespace async_cpp {
 namespace tasks {
 
 /**
- * Basic task implementationwhich runs a function object.
+ * Implementation of a task which takes a function to run, and runs that during performSpecific.
  */
 class ASYNC_CPP_TASKS_API BasicTask : public Task {
 public:
