@@ -114,7 +114,7 @@ TEST(ASYNC_TEST, PARALLEL_TIMING)
     ASSERT_NO_THROW(result = parallelResult.throwOrGet());
     ASSERT_TRUE(result->second);
 
-    ASSERT_LE(totalDur, result->first);
+    ASSERT_GE(totalDur, result->first);
 
     manager->shutdown();
 }

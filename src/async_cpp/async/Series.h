@@ -81,11 +81,13 @@ std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<
     auto result = finishTask->getFuture();
 
     std::shared_ptr<ISeriesTask<TDATA>> nextTask = finishTask;
-    for(auto& op : mOperations)
+    for(auto iter = mOperations.rbegin(); iter != mOperations.rend(); ++iter)
     {
+        auto op = (*iter);
         nextTask = std::make_shared<SeriesTask<TDATA>>(mManager, op, nextTask);
     }
 
+    nextTask->forwardFuture(AsyncResult<TDATA>().asFulfilledFuture());
     mManager->run(nextTask);
 
     return result;  
