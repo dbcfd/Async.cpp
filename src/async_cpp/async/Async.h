@@ -1,21 +1,24 @@
 #pragma once
 
+#include "async_cpp/async/Platform.h"
+#include "async_cpp/tasks/Tasks.h"
+
+#ifndef _MSC_VER
 #include <future>
-#include <memory>
-#include <vector>
+#endif
 
 namespace async_cpp {
 namespace async {
 
-class AsyncResult;
-class AsyncTaskResult;
-class IAsyncTask;
+template<class TDATA> class AsyncResult;
 
-//have to pass results as shared_ptr since std::bind and lambda is not move or forward aware
-typedef std::promise<AsyncResult> AsyncPromise;
-typedef std::shared_ptr<AsyncTaskResult> PtrAsyncTaskResult;
-typedef std::future<AsyncResult> AsyncFuture;
-typedef std::shared_ptr<std::vector<std::shared_ptr<IAsyncTask>>> ParallelTasks;
+//if not using vc11, can use these aliases to simplify your code
+#ifndef _MSC_VER
+template<class TDATA> 
+using AsyncPromise = std::promise<AsyncResult<TDATA>>;
+template<class TDATA>
+using std::future<AsyncResult<TDATA>> = std::future<AsyncResult<TDATA>>;
+#endif
 
 }
 }

@@ -1,52 +1,23 @@
 #pragma once
-#include "async_cpp/async/Platform.h"
 #include "async_cpp/async/Async.h"
-
-#include "async_cpp/tasks/Task.h"
-
-#include <functional>
-#include <vector>
+#include "async_cpp/async/ISeriesTask.h"
 
 namespace async_cpp {
-
-namespace tasks {
-class IManager;
-}
-
 namespace async {
-
-class ASYNC_CPP_ASYNC_API ISeriesTask : public tasks::Task {
-public:
-    ISeriesTask(std::shared_ptr<tasks::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
-    virtual ~ISeriesTask();
-
-    virtual void cancel() = 0;
-
-    inline void forwardFuture(AsyncFuture&& future);
-protected:
-    AsyncResult getResult();
-
-    std::function<AsyncFuture(AsyncResult&)> mGenerateResultFunc;
-    std::shared_ptr<tasks::IManager> mManager;
-    std::atomic_bool mWasRun;
-
-private:
-    bool mHasForwardedFuture;
-    AsyncFuture mForwardedFuture;
-};
 
 /**
  * Task which continues a chain of asynchronous tasks.
  */
-class ASYNC_CPP_ASYNC_API SeriesTask : public ISeriesTask {
+template<class TDATA>
+class SeriesTask : public ISeriesTask<TDATA> {
 public:
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
-        std::function<AsyncFuture(AsyncResult&)> generateResult,
-        std::shared_ptr<ISeriesTask> nextTask);    
+        std::function<std::future<AsyncResult<TDATA>>(AsyncResult<TDATA>&)> generateResult,
+        std::shared_ptr<ISeriesTask<TDATA>> nextTask);    
     virtual ~SeriesTask();
 
     virtual void cancel();
@@ -55,66 +26,58 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::shared_ptr<ISeriesTask> mNextTask;
-};
-
-//------------------------------------------------------------------------------
-class SeriesTerminalTask;
-class ASYNC_CPP_ASYNC_API SeriesCollectTask : public ISeriesTask {
-public:
-    SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr, std::function<AsyncFuture(AsyncResult&)> generateResult);
-    virtual ~SeriesCollectTask();
-
-    virtual void cancel();
-
-    inline AsyncFuture getFuture();
-protected:
-    virtual void performSpecific();
-
-private:
-    std::promise<AsyncResult> mPromise;
-    std::shared_ptr<SeriesTerminalTask> mTerminalTask;
-};
-
-//------------------------------------------------------------------------------
-class ASYNC_CPP_ASYNC_API SeriesTerminalTask : public tasks::Task {
-public:
-    SeriesTerminalTask();
-    virtual ~SeriesTerminalTask();
-
-    void cancel();
-    AsyncFuture getFuture();
-
-    inline void forwardFuture(AsyncFuture&& future);
-
-protected:
-    virtual void performSpecific();
-
-private:
-    std::atomic_bool mWasRun;
-    AsyncFuture mForwardedFuture;
-    std::promise<AsyncResult> mPromise;
+    std::shared_ptr<ISeriesTask<TDATA>> mNextTask;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-void ISeriesTask::forwardFuture(AsyncFuture&& forwardedFuture)
+template<class TDATA>
+SeriesTask<TDATA>::SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
+        std::function<std::future<AsyncResult<TDATA>>(AsyncResult<TDATA>&)> generateResult,
+        std::shared_ptr<ISeriesTask<TDATA>> nextTask)
+    : ISeriesTask<TDATA>(mgr), mNextTask(nextTask)
 {
-    mHasForwardedFuture = true;
-    mForwardedFuture = std::move(forwardedFuture);
+    assert(mNextTask);
 }
 
 //------------------------------------------------------------------------------
-AsyncFuture SeriesCollectTask::getFuture()
+template<class TDATA>
+SeriesTask<TDATA>::~SeriesTask()
 {
-    return mTerminalTask->getFuture();
+
 }
 
 //------------------------------------------------------------------------------
-void SeriesTerminalTask::forwardFuture(AsyncFuture&& forwardedFuture)
+template<class TDATA>
+void SeriesTask<TDATA>::cancel()
 {
-    mForwardedFuture = std::move(forwardedFuture);
+    mIsCancelled = true;
+    mNextTask->cancel();
 }
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void SeriesTask<TDATA>::performSpecific()
+{
+    if(!mIsCancelled)
+    {
+#ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specific _Is_ready
+        if(mForwardedFuture._Is_ready())
+#else
+        if(std::future_status::ready == mForwardedFuture.wait_for(std::chrono::milliseconds(0)))
+#endif
+        {
+            mNextTask->forwardFuture(mGenerateResultFunc(mForwardedFuture.get()));
+            mManager->run(mNextTask);
+        }
+        else
+        {
+            reset();
+            mManager->run(shared_from_this());
+        }
+    }
+}
+
 
 }
 }

@@ -1,7 +1,7 @@
 #pragma once
-#include "async_cpp/async/Platform.h"
 #include "async_cpp/async/Async.h"
 
+#include <future>
 #include <memory>
 
 namespace async_cpp {
@@ -10,7 +10,8 @@ namespace async {
 /**
  * Store the result of an asynchronous operation, either as an error, or data.
  */
-class ASYNC_CPP_ASYNC_API AsyncResult {
+template<class TDATA>
+class AsyncResult {
 public:
     /**
      * Create a result that was an error
@@ -21,7 +22,7 @@ public:
      * Create a result that was valid, with data that will be retrieved later
      * @param data Shared point to data
      */
-    AsyncResult(std::shared_ptr<void> data);
+    AsyncResult(std::shared_ptr<TDATA> data);
     /**
      * Create a result that was valid, but you don't wish to return a result
      */
@@ -33,7 +34,7 @@ public:
      * Check if this result is an error, throwing a std::runtime_error if it is. If not an error,
      * return the result.
      */
-    std::shared_ptr<void> throwOrGet() const;
+    std::shared_ptr<TDATA> throwOrGet() const;
     /**
      * Throw a std::runtime_error if this result is an error
      */
@@ -48,55 +49,93 @@ public:
      * Return the result held by this object
      * @return Result held
      */
-    inline std::shared_ptr<void> result() const;
+    inline std::shared_ptr<TDATA> result() const;
     /**
      * Return the string that indicates errors
      * @return String holding error
      */
     inline const std::string& error() const;
 
-    inline AsyncFuture asFulfilledFuture() const;
-
-    /**
-     * Return the result as the given type, if not error. Throw if error.
-     * @type Type of return
-     * @return Shared pointer of type
-     */
-    template<class T>
-    std::shared_ptr<T> throwOrAs() const;
+    inline std::future<AsyncResult<TDATA>> asFulfilledFuture() const;
 
 private:
     std::string mError;
-    std::shared_ptr<void> mResult;
+    std::shared_ptr<TDATA> mResult;
 
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-std::shared_ptr<void> AsyncResult::result() const
+template<class TDATA>
+AsyncResult<TDATA>::AsyncResult(const std::string& error) : mError(error)
+{
+    assert(error.size() > 0);
+}
+    
+//------------------------------------------------------------------------------
+template<class TDATA>
+AsyncResult<TDATA>::AsyncResult(std::shared_ptr<TDATA> data) : mResult(data)
+{
+
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+AsyncResult<TDATA>::AsyncResult()
+{
+
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+AsyncResult<TDATA>::~AsyncResult()
+{
+
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+std::shared_ptr<TDATA> AsyncResult<TDATA>::throwOrGet() const
+{
+    throwIfError();
+    return mResult;
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void AsyncResult<TDATA>::throwIfError() const
+{
+    if(wasError()) throw(std::runtime_error(mError));
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+const bool AsyncResult<TDATA>::wasError() const
+{
+    return (mError.size() > 0);
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+std::shared_ptr<TDATA> AsyncResult<TDATA>::result() const
 {
     return mResult;
 }
 
 //------------------------------------------------------------------------------
-const std::string& AsyncResult::error() const
+template<class TDATA>
+const std::string& AsyncResult<TDATA>::error() const
 {
     return mError;
 }
 
 //------------------------------------------------------------------------------
-AsyncFuture AsyncResult::asFulfilledFuture() const
+template<class TDATA>
+std::future<AsyncResult<TDATA>> AsyncResult<TDATA>::asFulfilledFuture() const
 {
     std::promise<AsyncResult> result;
     result.set_value(*this);
     return result.get_future();
-}
-
-//------------------------------------------------------------------------------
-template<class T>
-std::shared_ptr<T> AsyncResult::throwOrAs() const
-{
-    return std::static_pointer_cast<T>(throwOrGet());
 }
 
 }
