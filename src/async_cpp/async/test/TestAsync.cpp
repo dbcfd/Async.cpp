@@ -309,7 +309,7 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER)
         }, 25).execute();
 
     auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
-        [&times](std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
+        [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
             bool wasSuccessful = true;
             for(auto& res : results)
             {
@@ -383,7 +383,7 @@ TEST(ASYNC_TEST, OVERLOAD_MANAGER_PARALLEL)
         }, 25).execute();
 
     auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
-        [&times](std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
+        [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
             bool wasSuccessful = true;
             for(auto& res : results)
             {

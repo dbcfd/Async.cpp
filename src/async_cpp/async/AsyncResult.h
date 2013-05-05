@@ -1,6 +1,7 @@
 #pragma once
 #include "async_cpp/async/Async.h"
 
+#include <assert.h>
 #include <future>
 #include <memory>
 

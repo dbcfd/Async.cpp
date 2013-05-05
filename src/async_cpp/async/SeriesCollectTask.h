@@ -10,7 +10,7 @@ template<class TDATA, class TRESULT>
 class SeriesCollectTask : public ISeriesTask<TDATA> {
 public:
     SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr, 
-        std::function<std::future<AsyncResult<TRESULT>>(AsyncResult<TDATA>&)> generateResult);
+        std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> generateResult);
     virtual ~SeriesCollectTask();
 
     virtual void cancel();
@@ -20,15 +20,15 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> mGenerateResultFunc;
-    std::shared_ptr<SeriesTerminalTask<TDATA>> mTerminalTask;
+    std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> mGenerateResultFunc;
+    std::shared_ptr<SeriesTerminalTask<TRESULT>> mTerminalTask;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
 SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr,
-                                     std::function<std::future<AsyncResult<TRESULT>>(AsyncResult<TDATA>&)> generateResult)
+                                     std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> generateResult)
                                      : ISeriesTask<TDATA>(mgr), 
                                      mGenerateResultFunc(generateResult),
                                      mTerminalTask(std::make_shared<SeriesTerminalTask<TRESULT>>(mgr))

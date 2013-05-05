@@ -61,7 +61,7 @@ std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(s
 
     for(auto data : mData)
     {
-        mManager->run(std::make_shared<ParallelTask<TOUT>>(mManager, std::bind(mOp, data), terminalTask));
+        mManager->run(std::make_shared<ParallelTask<TOUT, TRESULT>>(mManager, std::bind(mOp, data), terminalTask));
     }
 
     return future;

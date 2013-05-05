@@ -82,7 +82,7 @@ std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute(std::functio
 
     for(auto op : mOps)
     {
-        mManager->run(std::make_shared<ParallelTask<TDATA>>(mManager, op, terminalTask));
+        mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
     }
 
     return future; 

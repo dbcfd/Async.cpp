@@ -34,7 +34,7 @@ private:
     size_t mTasksOutstanding;
     std::vector<std::future<AsyncResult<TDATA>>> mTaskFutures;
     std::vector<AsyncResult<TDATA>> mTaskResults;
-    std::shared_ptr<ParallelTerminalTask<TDATA>> mTerminalTask;
+    std::shared_ptr<ParallelTerminalTask<TRESULT>> mTerminalTask;
 };
 
 //inline implementations
@@ -69,7 +69,7 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
         }
         catch(std::exception& ex)
         {
-            futureToForward = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
+            futureToForward = AsyncResult<TRESULT>(ex.what()).asFulfilledFuture();
         }
         mTerminalTask->forwardResult(std::move(futureToForward));
         mManager->run(mTerminalTask);
@@ -80,9 +80,9 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
         for(auto& future : mTaskFutures)
         {
 #ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specific _Is_ready
-            if(mGeneratedFuture._Is_ready())
+            if(future._Is_ready())
 #else
-            if(std::future_status::ready == mGeneratedFuture.wait_for(std::chrono::milliseconds(0)))
+            if(std::future_status::ready == future.wait_for(std::chrono::milliseconds(0)))
 #endif
             {
                 mTaskResults.emplace_back(future.get());

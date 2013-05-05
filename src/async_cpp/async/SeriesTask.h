@@ -16,7 +16,7 @@ public:
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
-        std::function<std::future<AsyncResult<TDATA>>(AsyncResult<TDATA>&)> generateResult,
+        std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> generateResult,
         std::shared_ptr<ISeriesTask<TDATA>> nextTask);    
     virtual ~SeriesTask();
 
@@ -27,15 +27,16 @@ protected:
 
 private:
     std::shared_ptr<ISeriesTask<TDATA>> mNextTask;
+    std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> mGenerateResultFunc;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
 SeriesTask<TDATA>::SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
-        std::function<std::future<AsyncResult<TDATA>>(AsyncResult<TDATA>&)> generateResult,
+        std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> generateResult,
         std::shared_ptr<ISeriesTask<TDATA>> nextTask)
-    : ISeriesTask<TDATA>(mgr), mNextTask(nextTask)
+    : ISeriesTask<TDATA>(mgr), mNextTask(nextTask), mGenerateResultFunc(generateResult)
 {
     assert(mNextTask);
 }
