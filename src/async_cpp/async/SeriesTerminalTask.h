@@ -15,13 +15,10 @@ public:
     void cancel();
     std::future<AsyncResult<TDATA>> getFuture();
 
-    void forwardFuture(std::future<AsyncResult<TDATA>>&& future);
-
 protected:
     virtual void performSpecific();
 
-private:
-    std::future<AsyncResult<TDATA>> mForwardedFuture;
+private:    
     std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mTask;
 };
 
