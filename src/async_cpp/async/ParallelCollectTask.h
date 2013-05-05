@@ -103,7 +103,7 @@ template<class TDATA, class TRESULT>
 size_t ParallelCollectTask<TDATA, TRESULT>::notifyTaskCompletion(std::future<AsyncResult<TDATA>>&& futureResult)
 {
     std::unique_lock<std::mutex> lock(mTasksMutex);
-    mTaskResults.emplace_back(std::move(futureResult));
+    mTaskFutures.emplace_back(std::move(futureResult));
     --mTasksOutstanding;
     return mTasksOutstanding;
 }

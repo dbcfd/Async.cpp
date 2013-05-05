@@ -22,7 +22,7 @@ protected:
 
 private:
     std::future<AsyncResult<TDATA>> mForwardedFuture;
-    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>& forwardedResult)> mTask;
+    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mTask;
 };
 
 //inline implementations
@@ -30,9 +30,11 @@ private:
 template<class TDATA>
 SeriesTerminalTask<TDATA>::SeriesTerminalTask(std::shared_ptr<tasks::IManager> mgr) : ISeriesTask<TDATA>(mgr)
 {
-    mTask = [](AsyncResult<TDATA>& forwardedResult) -> AsyncResult<TDATA> {
-        return std::move(forwardedResult);
-    };
+    mTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
+        [](AsyncResult<TDATA>& forwardedResult) -> AsyncResult<TDATA> {
+            return std::move(forwardedResult);
+        }
+    );
 }
 
 //------------------------------------------------------------------------------

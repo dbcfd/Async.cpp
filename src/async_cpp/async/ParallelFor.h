@@ -48,7 +48,7 @@ ParallelFor<TDATA, TRESULT>::ParallelFor(std::shared_ptr<tasks::IManager> manage
         const size_t nbTimes)
     : mManager(manager), mOp(op), mNbTimes(nbTimes)
 {
-    assert(nullptr != manager);
+    assert(manager);
     assert(0 < nbTimes);
     
 }
@@ -59,15 +59,13 @@ std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute(std::func
 {
     auto terminalTask(std::make_shared<ParallelCollectTask<TDATA,TRESULT>>(mManager, mNbTimes, onFinishOp));
 
-    auto future = terminalTask->getFuture();
-
     for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
         auto op = std::bind(mOp, idx);
         mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
     }
 
-    return future;   
+    return terminalTask->getFuture();   
 }
 
 //------------------------------------------------------------------------------

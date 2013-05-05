@@ -31,7 +31,7 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::packaged_task<AsyncResult<TDATA>(std::future<AsyncResult<TDATA>>&)> mFutureTask;
+    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mFutureTask;
     std::future<AsyncResult<TDATA>> mGeneratedFuture;
 };
 
@@ -40,18 +40,12 @@ private:
 template<class TDATA>
 ParallelTerminalTask<TDATA>::ParallelTerminalTask(std::shared_ptr<tasks::IManager> mgr) : IParallelTask(mgr)
 {
-    mFutureTask = [](std::future<AsyncResult>& future) -> AsyncResult {
-        AsyncResult res;
-        try
+    mFutureTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
+        [](AsyncResult<TDATA>& result) -> AsyncResult<TDATA> 
         {
-            res = mGeneratedFuture.get();
+            return std::move(result);
         }
-        catch(std::future_error& ex)
-        {
-            res = AsyncResult(ex.what());
-        }
-        return res;
-    };
+    );
 }
 
 //------------------------------------------------------------------------------
@@ -71,7 +65,7 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     if(std::future_status::ready == mGeneratedFuture.wait_for(std::chrono::milliseconds(0)))
 #endif
     {
-        mFutureTask(mGeneratedFuture);
+        mFutureTask(mGeneratedFuture.get());
     }
     else
     {
