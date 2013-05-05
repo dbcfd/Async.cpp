@@ -23,7 +23,6 @@ protected:
     virtual void performSpecific();
 
 private:
-    std::shared_ptr<tasks::IManager> mManager;
     std::function<std::future<AsyncResult<TDATA>>(void)> mGenerateResultFunc;
     std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> mCollectTask;
 };
@@ -36,7 +35,6 @@ ParallelTask<TDATA, TRESULT>::ParallelTask(std::shared_ptr<tasks::IManager> mgr,
         std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> collectTask)
     : IParallelTask(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask)
 {
-    assert(mgr);
     assert(collectTask);
 }
 

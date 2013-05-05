@@ -55,7 +55,7 @@ template<class TDATA, class TRESULT>
 Parallel<TDATA, TRESULT>::Parallel(std::shared_ptr<tasks::IManager> manager, const std::vector<std::function<std::future<AsyncResult<TDATA>>(void)>>& tasks)
     : mManager(manager), mOps(tasks)
 {
-    assert(nullptr != manager);
+    assert(manager);
     assert(!tasks.empty());
 }
 
@@ -64,8 +64,8 @@ template<class TDATA, class TRESULT>
 Parallel<TDATA, TRESULT>::Parallel(std::shared_ptr<tasks::IManager> manager, std::function<std::future<AsyncResult<TDATA>>(void)> tasks[], const size_t nbTasks)
     : mManager(manager)
 {
-    assert(nullptr != manager);
-    assert(nullptr != tasks);
+    assert(manager);
+    assert(tasks);
 
     mOps.assign(tasks, tasks+nbTasks);
 

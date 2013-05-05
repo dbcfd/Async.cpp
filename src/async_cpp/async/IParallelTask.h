@@ -18,6 +18,8 @@ public:
     virtual ~IParallelTask();
 
 protected:
+    IParallelTask(const IParallelTask& other);
+
     std::shared_ptr<tasks::IManager> mManager;
 };
 

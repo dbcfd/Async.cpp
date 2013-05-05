@@ -11,6 +11,7 @@ class SeriesCollectTask : public ISeriesTask<TDATA> {
 public:
     SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> generateResult);
+    SeriesCollectTask(SeriesCollectTask&& other);
     virtual ~SeriesCollectTask();
 
     virtual void cancel();
@@ -35,6 +36,17 @@ SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(std::shared_ptr<tasks::IMan
 {
 
 }
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(SeriesCollectTask&& other)
+                                     : ISeriesTask<TDATA>(std::move(other)), 
+                                     mGenerateResultFunc(std::move(other.mGenerateResultFunc)),
+                                     mTerminalTask(std::move(mTerminalTask))
+{
+
+}
+
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
@@ -67,8 +79,7 @@ void SeriesCollectTask<TDATA, TRESULT>::performSpecific()
         }
         else
         {
-            reset();
-            mManager->run(shared_from_this());
+            mManager->run(std::make_shared<SeriesCollectTask<TDATA, TRESULT>>(std::move(*this)));
         }
     }
 }

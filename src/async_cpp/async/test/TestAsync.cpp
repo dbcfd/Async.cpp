@@ -18,7 +18,7 @@ TEST(ASYNC_TEST, PARALLEL)
 {
     auto manager(std::make_shared<tasks::Manager>(5));
     std::atomic<int> runCount(1);
-    std::vector<int> taskRunOrder(5, 0);
+    std::vector<int> taskRunOrder(6, 0);
 
     std::function<std::future<AsyncResult<void>>(void)> opsArray[] = {
         [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
@@ -48,7 +48,8 @@ TEST(ASYNC_TEST, PARALLEL)
             bool allSuccessful = true;
             for(auto& result : results)
             {
-                allSuccessful &= result.wasError();
+                bool wasError = result.wasError();
+                allSuccessful &= !wasError;
             }
             if(allSuccessful)
             {

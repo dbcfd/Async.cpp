@@ -22,6 +22,7 @@ public:
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     ParallelTerminalTask(std::shared_ptr<tasks::IManager> mgr);
+    ParallelTerminalTask(ParallelTerminalTask&& other);
     virtual ~ParallelTerminalTask();
 
     std::future<AsyncResult<TDATA>> getFuture();
@@ -50,6 +51,16 @@ ParallelTerminalTask<TDATA>::ParallelTerminalTask(std::shared_ptr<tasks::IManage
 
 //------------------------------------------------------------------------------
 template<class TDATA>
+ParallelTerminalTask<TDATA>::ParallelTerminalTask(ParallelTerminalTask&& other) 
+    : IParallelTask(other.mManager),
+    mFutureTask(std::move(other.mFutureTask)),
+    mGeneratedFuture(std::move(other.mGeneratedFuture))
+{
+    
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
 ParallelTerminalTask<TDATA>::~ParallelTerminalTask()
 {
 
@@ -69,8 +80,7 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     }
     else
     {
-        reset();
-        mManager->run(shared_from_this());
+        mManager->run(std::make_shared<ParallelTerminalTask<TDATA>>(std::move(*this)));
     }
 }
 

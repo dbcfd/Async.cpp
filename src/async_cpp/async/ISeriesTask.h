@@ -11,12 +11,15 @@ template<class TDATA>
 class ISeriesTask : public tasks::Task {
 public:
     ISeriesTask(std::shared_ptr<tasks::IManager> mgr);
+    ISeriesTask(ISeriesTask&& other);
     virtual ~ISeriesTask();
 
     virtual void cancel() = 0;
 
     void forwardFuture(std::future<AsyncResult<TDATA>>&& future);
 protected:
+    ISeriesTask(const ISeriesTask& other);
+
     bool mIsCancelled;
     std::shared_ptr<tasks::IManager> mManager;
     std::future<AsyncResult<TDATA>> mForwardedFuture;
@@ -26,9 +29,17 @@ protected:
 //------------------------------------------------------------------------------
 template<class TDATA>
 ISeriesTask<TDATA>::ISeriesTask(std::shared_ptr<tasks::IManager> mgr)
-    : mManager(mgr), mIsCancelled(false)
+    : Task(), mManager(mgr), mIsCancelled(false)
 {
     assert(mgr);
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+ISeriesTask<TDATA>::ISeriesTask(ISeriesTask&& other)
+    : Task(), mManager(other. mManager), mForwardedFuture(std::move(other.mForwardedFuture)), mIsCancelled(other.mIsCancelled)
+{
+    
 }
 
 //------------------------------------------------------------------------------

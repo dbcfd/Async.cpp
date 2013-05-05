@@ -10,6 +10,7 @@ template<class TDATA>
 class SeriesTerminalTask : public ISeriesTask<TDATA> {
 public:
     SeriesTerminalTask(std::shared_ptr<tasks::IManager> mgr);
+    SeriesTerminalTask(SeriesTerminalTask&& other);
     virtual ~SeriesTerminalTask();
 
     void cancel();
@@ -32,6 +33,15 @@ SeriesTerminalTask<TDATA>::SeriesTerminalTask(std::shared_ptr<tasks::IManager> m
             return std::move(forwardedResult);
         }
     );
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+SeriesTerminalTask<TDATA>::SeriesTerminalTask(SeriesTerminalTask&& other) 
+    : ISeriesTask<TDATA>(std::move(other)),
+    mTask(std::move(other.mTask))
+{
+
 }
 
 //------------------------------------------------------------------------------
@@ -78,8 +88,7 @@ void SeriesTerminalTask<TDATA>::performSpecific()
         }
         else
         {
-            reset();
-            mManager->run(shared_from_this());
+            mManager->run(std::make_shared<SeriesTerminalTask<TDATA>>(std::move(*this)));
         }
     }
 }

@@ -21,6 +21,7 @@ public:
     ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
         const size_t tasksOutstanding, 
         std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult);
+    ParallelCollectTask(ParallelCollectTask&& other);
     virtual ~ParallelCollectTask();
 
     size_t notifyTaskCompletion(std::future<AsyncResult<TDATA>>&& futureResult);
@@ -43,11 +44,25 @@ template<class TDATA, class TRESULT>
 ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
                                            const size_t tasksOutstanding, 
                                            std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult)
-                                           : IParallelTask(mgr), mTasksOutstanding(tasksOutstanding), mGenerateResultFunc(generateResult), 
+                                           : IParallelTask(mgr), 
+                                           mTasksOutstanding(tasksOutstanding), 
+                                           mGenerateResultFunc(generateResult), 
                                            mTerminalTask(std::make_shared<ParallelTerminalTask<TRESULT>>(mgr))
 {
-    assert(mgr);
-    mTaskResults.reserve(tasksOutstanding);
+    
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(ParallelCollectTask&& other)
+                                           : IParallelTask(other.mManager),
+                                           mGenerateResultFunc(std::move(other.mGenerateResultFunc)), 
+                                           mTerminalTask(std::move(other.mTerminalTask)), 
+                                           mTaskResults(std::move(other.mTaskResults)), 
+                                           mTaskFutures(std::move(other.mTaskFutures))
+{
+    
+    
 }
 
 //------------------------------------------------------------------------------
@@ -93,8 +108,7 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
             }
         }
         mTaskFutures.swap(futuresOutstanding);
-        reset();
-        mManager->run(shared_from_this());
+        mManager->run(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(std::move(*this)));
     }   
 }
 

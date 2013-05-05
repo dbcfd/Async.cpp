@@ -18,6 +18,7 @@ public:
     SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> generateResult,
         std::shared_ptr<ISeriesTask<TDATA>> nextTask);    
+    SeriesTask(SeriesTask&& other);
     virtual ~SeriesTask();
 
     virtual void cancel();
@@ -39,6 +40,14 @@ SeriesTask<TDATA>::SeriesTask(std::shared_ptr<tasks::IManager> mgr,
     : ISeriesTask<TDATA>(mgr), mNextTask(nextTask), mGenerateResultFunc(generateResult)
 {
     assert(mNextTask);
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+SeriesTask<TDATA>::SeriesTask(SeriesTask&& other)
+    : ISeriesTask<TDATA>(std::move(other)), mNextTask(std::move(other.mNextTask)), mGenerateResultFunc(std::move(other.mGenerateResultFunc))
+{
+    
 }
 
 //------------------------------------------------------------------------------
@@ -73,8 +82,7 @@ void SeriesTask<TDATA>::performSpecific()
         }
         else
         {
-            reset();
-            mManager->run(shared_from_this());
+            mManager->run(std::make_shared<SeriesTask<TDATA>>(std::move(*this)));
         }
     }
 }

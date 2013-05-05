@@ -43,6 +43,8 @@ protected:
     virtual void onException(const std::exception& ex);
 
 private:
+    Task(const Task& other);
+
     void buildMembers();
 
     std::future<bool> mTaskCompleteFuture;
