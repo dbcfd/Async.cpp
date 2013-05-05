@@ -21,11 +21,6 @@ option(
   "Use shared (DLL) run-time lib even when Google Test is built as static lib."
   OFF)
   
-set(LIBRARY_BUILD_TYPE STATIC)
-if(BUILD_SHARED_LIBS)
-	set(LIBRARY_BUILD_TYPE SHARED)
-endif()
-  
 if(NOT USE_STATIC_RUNTIME AND NOT BUILD_SHARED_LIBS)
 	set(gtest_force_shared_crt ON)
 endif()
@@ -46,7 +41,13 @@ set(THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 set(gtest_VERSION 1.6.0)
 add_subdirectory(thirdparty)
 
-find_package(Boost 1.53.0)
+set(Boost_USE_STATIC_LIBS        ON)
+if(BUILD_SHARED_LIBS)
+	set(Boost_USE_STATIC_LIBS        OFF)
+endif()
+set(Boost_USE_STATIC_RUNTIME    ${USE_STATIC_RUNTIME})
+
+find_package(Boost 1.53.0 COMPONENTS regex system date_time)
 
 if(BUILD_TESTS)
 	enable_testing()

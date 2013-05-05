@@ -1,13 +1,12 @@
-#ifdef NOT_HAS_BOOST
-#include "async_cpp/tasks/Manager.h"
-#include "async_cpp/tasks/Worker.h"
+#ifdef HAS_BOOST
+#include "async_cpp/tasks/AsioManager.h"
 #include "async_cpp/tasks/Task.h"
 
 #pragma warning(disable:4251)
 #include <gtest/gtest.h>
 
 #include<thread>
-using namespace async_cpp::workers;
+using namespace async_cpp::tasks;
 
 class TestTask : public Task
 {
@@ -33,187 +32,7 @@ private:
 
 };
 
-TEST(WORKERS_TEST, TEST_TASK)
-{
-    {
-        TestTask task;
-
-        ASSERT_FALSE(task.wasPerformed);
-        ASSERT_FALSE(task.isComplete());
-
-        task.perform([](){});
-
-        ASSERT_TRUE(task.wasPerformed);
-        ASSERT_TRUE(task.isComplete());
-        ASSERT_TRUE(task.wasSuccessful()); //complete, so won't block
-    }
-}
-
-class TestRepeatedTask : public Task
-{
-public:
-    TestRepeatedTask()
-    {
-        wasPerformed = false;
-        wasPerformedTwice = false;
-    }
-
-    virtual ~TestRepeatedTask()
-    {
-
-    }
-    
-    bool wasPerformed;
-    bool wasPerformedTwice;
-
-private:
-    virtual void performSpecific()
-    {
-        if(wasPerformed)
-        {
-            wasPerformedTwice = true;
-        }
-        wasPerformed = true;
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-};
-
-TEST(WORKERS_TEST, TEST_REPEATED_TASK)
-{
-    TestRepeatedTask task;
-
-    ASSERT_FALSE(task.wasPerformed);
-    ASSERT_FALSE(task.isComplete());
-
-    task.perform([](){});
-
-    ASSERT_TRUE(task.wasPerformed);
-    ASSERT_TRUE(task.isComplete());
-    ASSERT_FALSE(task.wasPerformedTwice);
-    ASSERT_TRUE(task.wasSuccessful());
-
-    task.reset();
-
-    ASSERT_FALSE(task.isComplete());
-
-    task.perform([](){});
-
-    ASSERT_TRUE(task.wasPerformed);
-    ASSERT_TRUE(task.isComplete());
-    ASSERT_TRUE(task.wasPerformedTwice);
-    ASSERT_TRUE(task.wasSuccessful());
-}
-
-
-class TestExceptionTask : public Task
-{
-public:
-    TestExceptionTask()
-    {
-
-    }
-
-    virtual ~TestExceptionTask()
-    {
-
-    }
-
-private:
-    virtual void performSpecific()
-    {
-        throw(std::runtime_error("Task threw an error"));
-    }
-
-};
-
-TEST(WORKERS_TEST, TEST_EXCEPTION_TASK)
-{
-    {
-        TestExceptionTask task;
-
-        task.perform([](){});
-
-        ASSERT_TRUE(task.isComplete());
-        ASSERT_FALSE(task.wasSuccessful()); //task failed due to exception
-    }
-}
-
-class WorkerComplete
-{
-public:
-    WorkerComplete() : hasCompleted(false), wasRunning(true)
-    {
-
-    }
-
-    void complete(const bool running)
-    {
-        hasCompleted = true;
-        wasRunning = running;
-    }
-
-    bool hasCompleted;
-    bool wasRunning;
-};
-
-TEST(WORKERS_TEST, TEST_WORKER)
-{
-    {
-        //setup worker
-        WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
-
-        //setup and run task
-        auto task1(std::make_shared<TestTask>());
-        worker.runTask(task1);
-
-        //check that task was run
-        ASSERT_TRUE(task1->wasSuccessful());
-
-        //wait for worker to finish
-        worker.shutdown();
-
-        ASSERT_TRUE(workerComplete.hasCompleted);
-
-        //worker should shutdown and cleanup correctly
-    }
-
-    {
-        //setup worker
-        WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
-
-        //shutdown worker at same time as running task
-        auto task1(std::make_shared<TestTask>());
-        worker.runTask(task1);
-        worker.shutdown();
-
-        //shutdown after run, task may not get run
-        ASSERT_TRUE(workerComplete.hasCompleted);
-    }
-
-    {
-        //setup worker
-        WorkerComplete workerComplete;
-        auto completeFunction = [&workerComplete](Worker* worker) -> void { workerComplete.complete(worker->isRunning()); };
-        Worker worker(completeFunction);
-
-        //shutdown worker before running task
-        auto task1(std::make_shared<TestTask>());
-        worker.shutdown();
-        worker.runTask(task1);
-
-        //we will fail to run task, which means worker will fail to look for another task
-        ASSERT_FALSE(task1->wasSuccessful());
-        //worker was shutdown before run, complete will be marked as false
-        ASSERT_TRUE(workerComplete.hasCompleted);
-        ASSERT_FALSE(workerComplete.wasRunning);
-    }
-}
-
-TEST(WORKERS_TEST, MANAGER_TEST)
+TEST(ASIO_MANAGER_TEST, BASIC_TEST)
 {
     {
         //setup a bunch of tasks
@@ -224,7 +43,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         }
 
         //less workers than tasks, make sure they can go back and grab tasks
-        Manager manager(2);
+        AsioManager manager(2);
 
         for(std::vector< std::shared_ptr<Task> >::const_iterator task = tasks.begin(); task != tasks.end(); ++task)
         {
@@ -252,7 +71,7 @@ TEST(WORKERS_TEST, MANAGER_TEST)
         }
 
         //less workers than tasks, make sure they can go back and grab tasks
-        Manager manager(2);
+        AsioManager manager(2);
 
         bool tasksCompleted = true;
 
