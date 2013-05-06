@@ -106,7 +106,8 @@ std::future<AsyncResult<TDATA>> SeriesTerminalTask<TDATA>::getFuture()
 template<class TDATA>
 void SeriesTerminalTask<TDATA>::notifyFailureToPerform()
 {
-    mTask(AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform"));
+    auto result = AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform");
+    mTask(result);
 }
 
 }

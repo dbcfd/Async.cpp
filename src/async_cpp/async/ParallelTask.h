@@ -70,7 +70,8 @@ void ParallelTask<TDATA, TRESULT>::performSpecific()
 template<class TDATA, class TRESULT>
 void ParallelTask<TDATA, TRESULT>::notifyFailureToPerform()
 {
-    auto tasksRemaining = mCollectTask->notifyTaskCompletion(AsyncResult<TDATA>("ParallelTask: Failed to perform").asFulfilledFuture());
+    auto future = AsyncResult<TDATA>("ParallelTask: Failed to perform").asFulfilledFuture();
+    auto tasksRemaining = mCollectTask->notifyTaskCompletion(std::move(future));
     if(0 == tasksRemaining)
     {
         mCollectTask->failToPerform();

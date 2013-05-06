@@ -90,7 +90,8 @@ void ParallelTerminalTask<TDATA>::performSpecific()
 template<class TDATA>
 void ParallelTerminalTask<TDATA>::notifyFailureToPerform()
 {
-    mFutureTask(AsyncResult<TDATA>("ParallelTerminalTask: Failed to perform"));
+    auto result = AsyncResult<TDATA>("ParallelTerminalTask: Failed to perform");
+    mFutureTask(result);
 }
 
 //------------------------------------------------------------------------------
