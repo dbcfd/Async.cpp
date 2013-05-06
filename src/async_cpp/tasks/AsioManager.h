@@ -21,7 +21,7 @@ namespace tasks {
 /**
  * Manager of a set of workers, which are used to run tasks. If no workers are available, tasks are queue'd.
  */
-class ASYNC_CPP_TASKS_API AsioManager : public IManager, public std::enable_shared_from_this<AsioManager> {
+class ASYNC_CPP_TASKS_API AsioManager : public IManager {
 public:
     /**
      * Create a manager with a set number of threads, which will run tasks as they become available.
@@ -69,6 +69,7 @@ protected:
     std::shared_ptr<boost::asio::io_service> mService;
     std::unique_ptr<WorkWrapper> mWork;
     std::vector<std::thread> mThreads;
+    std::condition_variable mShutdownSignal;
 };
 
 //inline implementations

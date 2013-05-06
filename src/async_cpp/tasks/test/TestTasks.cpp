@@ -277,3 +277,25 @@ TEST(TASKS_TEST, MANAGER_TEST)
         //make sure cleanup shuts down correctly
     }
 }
+
+TEST(MANAGER_TEST, WAIT_FOR_COMPLETION)
+{
+    //setup a bunch of tasks
+    std::vector< std::shared_ptr<Task> > tasks;
+    for(size_t i = 0; i < 10; ++i) 
+    {
+        tasks.emplace_back(std::make_shared<TestTask>());
+    }
+
+    //less workers than tasks, make sure they can go back and grab tasks
+    auto manager = std::make_shared<Manager>(2);
+
+    for(auto task : tasks)
+    {
+        manager->run(task);
+    }
+
+    ASSERT_NO_THROW(manager->waitForTasksToComplete());
+    //make sure cleanup shuts down correctly
+    ASSERT_NO_THROW(manager.reset());
+}

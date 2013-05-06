@@ -41,13 +41,11 @@ AsioManager::AsioManager(const size_t nbThreads)
 AsioManager::~AsioManager()
 {
     shutdown();
-    for(auto& thread : mThreads)
-    {
-        if(thread.joinable())
-        {
-            thread.join();
-        }
-    }
+    std::mutex mutex;
+    std::unique_lock<std::mutex> lock(mutex);
+    mShutdownSignal.wait(lock, [this]()->bool {
+        return mThreads.empty();
+    } );
 }
 
 //------------------------------------------------------------------------------
@@ -75,6 +73,8 @@ void AsioManager::shutdown()
                 thread.join();
             }
         }
+        mThreads.clear();
+        mShutdownSignal.notify_all();
     }
 }
 
@@ -97,8 +97,7 @@ void AsioManager::run(std::shared_ptr<Task> task)
             std::unique_lock<std::mutex> lock(mTasksMutex);
             mTasksPending.push(task);
         }
-        auto thisPtr = shared_from_this();
-        mService->post([thisPtr, this]()->void {
+        mService->post([this]()->void {
             if(mRunning)
             {
                 std::shared_ptr<Task> task;
