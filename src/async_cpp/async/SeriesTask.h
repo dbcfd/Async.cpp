@@ -77,7 +77,16 @@ void SeriesTask<TDATA>::performSpecific()
         if(std::future_status::ready == mForwardedFuture.wait_for(std::chrono::milliseconds(0)))
 #endif
         {
-            mNextTask->forwardFuture(mGenerateResultFunc(mForwardedFuture.get()));
+            std::future<AsyncResult<TDATA>> future;
+            try
+            {
+                future = mGenerateResultFunc(mForwardedFuture.get());
+            }
+            catch(std::runtime_error& ex)
+            {
+                future = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
+            }
+            mNextTask->forwardFuture(std::move(future));
             mManager->run(mNextTask);
         }
         else

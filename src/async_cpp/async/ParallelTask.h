@@ -49,7 +49,16 @@ ParallelTask<TDATA, TRESULT>::~ParallelTask()
 template<class TDATA, class TRESULT>
 void ParallelTask<TDATA, TRESULT>::performSpecific()
 {
-    auto tasksRemaining = mCollectTask->notifyTaskCompletion(mGenerateResultFunc());
+    std::future<AsyncResult<TDATA>> future;
+    try 
+    {
+        future = mGenerateResultFunc();
+    }
+    catch(std::runtime_error& ex)
+    {
+        future = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
+    }
+    auto tasksRemaining = mCollectTask->notifyTaskCompletion(std::move(future));
     if(0 == tasksRemaining)
     {
         mManager->run(mCollectTask);
