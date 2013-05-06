@@ -79,7 +79,8 @@ void SeriesTerminalTask<TDATA>::performSpecific()
         {
             try
             {
-                mTask(mForwardedFuture.get());
+                auto result = mForwardedFuture.get();
+                mTask(result);
             }
             catch(std::future_error&)
             {

@@ -76,7 +76,8 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     if(std::future_status::ready == mGeneratedFuture.wait_for(std::chrono::milliseconds(0)))
 #endif
     {
-        mFutureTask(mGeneratedFuture.get());
+        auto result = mGeneratedFuture.get();
+        mFutureTask(result);
     }
     else
     {

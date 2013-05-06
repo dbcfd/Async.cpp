@@ -72,7 +72,7 @@ std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute(std::func
 template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute()
 {
-    return execute([](const std::vector<AsyncResult<TDATA>>& input)->std::future<AsyncResult<TRESULT>> { 
+    return execute([](const std::vector<AsyncResult<TDATA>>&)->std::future<AsyncResult<TRESULT>> { 
         return AsyncResult<TRESULT>().asFulfilledFuture();
     } );
 }

@@ -71,7 +71,7 @@ std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(s
 template<class TIN, class TOUT, class TRESULT>
 std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute()
 {
-    return execute([](const std::vector<AsyncResult<TOUT>>& input)->std::future<AsyncResult<TOUT>> { 
+    return execute([](const std::vector<AsyncResult<TOUT>>&)->std::future<AsyncResult<TOUT>> { 
         return AsyncResult<TRESULT>().asFulfilledFuture();
     });
 }
