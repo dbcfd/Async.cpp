@@ -8,6 +8,7 @@ namespace tasks {
 //------------------------------------------------------------------------------
 Task::Task()
 {
+    mTaskInvoked = false;
     buildMembers();
 }
 
@@ -38,17 +39,7 @@ void Task::buildMembers()
 //------------------------------------------------------------------------------
 Task::~Task()
 {
-    try
-    {
-        if(mTaskCompleteFuture.valid())
-        {
-            failToPerform();
-        }
-    }
-    catch(std::future_error&)
-    {
-        //already satisfied
-    }
+    failToPerform();
 }
 
 //------------------------------------------------------------------------------
@@ -60,13 +51,15 @@ void Task::onException(const std::exception&)
 //------------------------------------------------------------------------------
 void Task::failToPerform()
 {
-    mTask(true);
+    bool wasInvoked = mTaskInvoked.exchange(true);
+    if(!wasInvoked) mTask(true);
 }
 
 //------------------------------------------------------------------------------
 void Task::perform()
 {
-    mTask(false);
+    bool wasInvoked = mTaskInvoked.exchange(true);
+    if(!wasInvoked) mTask(false);
 }
 
 }

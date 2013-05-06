@@ -48,6 +48,7 @@ private:
     void buildMembers();
 
     std::future<bool> mTaskCompleteFuture;
+    std::atomic_bool mTaskInvoked;
     std::packaged_task<bool(bool)> mTask;
 };
 
