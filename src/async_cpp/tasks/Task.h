@@ -40,6 +40,7 @@ public:
 
 protected:
     virtual void performSpecific() = 0;
+    virtual void notifyFailureToPerform();
     virtual void onException(const std::exception& ex);
 
 private:

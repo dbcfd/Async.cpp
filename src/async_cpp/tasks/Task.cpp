@@ -49,10 +49,20 @@ void Task::onException(const std::exception&)
 }
 
 //------------------------------------------------------------------------------
+void Task::notifyFailureToPerform()
+{
+    //do nothing
+}
+
+//------------------------------------------------------------------------------
 void Task::failToPerform()
 {
     bool wasInvoked = mTaskInvoked.exchange(true);
-    if(!wasInvoked) mTask(true);
+    if(!wasInvoked) 
+    {
+        mTask(true);
+        notifyFailureToPerform();
+    }
 }
 
 //------------------------------------------------------------------------------

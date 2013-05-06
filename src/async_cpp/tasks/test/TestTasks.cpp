@@ -11,7 +11,7 @@ using namespace async_cpp::tasks;
 class TestTask : public Task
 {
 public:
-    TestTask() : wasPerformed(false)
+    TestTask() : wasPerformed(false), failedToPerform(true)
     {
 
     }
@@ -22,12 +22,18 @@ public:
     }
     
     bool wasPerformed;
+    bool failedToPerform;
 
 private:
     virtual void performSpecific()
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         wasPerformed = true;
+    }
+
+    virtual void notifyFailureToPerform()
+    {
+        failedToPerform = true;
     }
 
 };
@@ -264,7 +270,8 @@ TEST(TASKS_TEST, MANAGER_TEST)
         manager.run(tasks[9]);
 
         {
-            ASSERT_FALSE(tasks[9]->wasSuccessful());
+            EXPECT_FALSE(tasks[9]->wasSuccessful());
+            EXPECT_TRUE(std::static_pointer_cast<TestTask>(tasks[9])->failedToPerform);
         }
 
         //make sure cleanup shuts down correctly
