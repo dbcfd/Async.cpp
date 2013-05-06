@@ -33,12 +33,19 @@ Worker::~Worker()
     {
         mThread.join();
     }
+
+    if(mTaskToRun)
+    {
+        mTaskToRun->failToPerform();
+        mTaskCompleteFunction();
+    }
 }
 
 //------------------------------------------------------------------------------
 void Worker::runTask(std::shared_ptr<Task> task)
 {
     assert(task);
+    assert(!mTaskToRun);
 
     if(mRunning.load())
     {
@@ -51,14 +58,7 @@ void Worker::runTask(std::shared_ptr<Task> task)
     }
     else
     {
-        try
-        {
-            task->failToPerform();
-        }
-        catch(std::runtime_error& ex)
-        {
-            std::cerr << "Worker::runTask(): " << ex.what() << std::endl;
-        }
+        task->failToPerform();
         mTaskCompleteFunction();
     }
 }

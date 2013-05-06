@@ -97,17 +97,21 @@ void AsioManager::run(std::shared_ptr<Task> task)
             std::unique_lock<std::mutex> lock(mTasksMutex);
             mTasksPending.push(task);
         }
-        mService->post([this]()->void {
-            std::shared_ptr<Task> task;
+        auto thisPtr = shared_from_this();
+        mService->post([thisPtr, this]()->void {
+            if(mRunning)
             {
-                std::unique_lock<std::mutex> lock(mTasksMutex);
-                task = mTasksPending.front();
-                mTasksPending.pop();
+                std::shared_ptr<Task> task;
+                {
+                    std::unique_lock<std::mutex> lock(mTasksMutex);
+                    task = mTasksPending.front();
+                    mTasksPending.pop();
+                }
+                mTasksOutstanding.fetch_add(1);
+                task->perform();
+                mTasksOutstanding.fetch_sub(1);
+                mTasksSignal.notify_all();
             }
-            mTasksOutstanding.fetch_add(1);
-            task->perform();
-            mTasksOutstanding.fetch_sub(1);
-            mTasksSignal.notify_all();
         } );
     }  
     else
