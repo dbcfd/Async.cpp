@@ -4,11 +4,16 @@
 #include "async_cpp/tasks/IManager.h"
 
 #include <atomic>
-#include <boost/asio.hpp>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
+
+namespace boost {
+namespace asio {
+class io_service;
+}
+}
 
 namespace async_cpp {
 namespace tasks {
@@ -52,15 +57,17 @@ public:
      * Retrieve the asio service that this manager is using.
      * @return Reference to boost::asio::io_service that is being used
      */
-    inline boost::asio::io_service& getService();
+    inline std::shared_ptr<boost::asio::io_service> getService();
 protected:
+    class WorkWrapper;
+
     std::atomic_bool mRunning;
     std::atomic_size_t mTasksOutstanding;
     std::mutex mTasksMutex;
     std::condition_variable mTasksSignal;
     std::queue<std::shared_ptr<Task>> mTasksPending;
-    boost::asio::io_service mService;
-    boost::asio::io_service::work mWork;
+    std::shared_ptr<boost::asio::io_service> mService;
+    std::unique_ptr<WorkWrapper> mWork;
     std::vector<std::thread> mThreads;
 };
 
@@ -72,7 +79,7 @@ const bool AsioManager::isRunning()
 }
 
 //------------------------------------------------------------------------------
-boost::asio::io_service& AsioManager::getService()
+std::shared_ptr<boost::asio::io_service> AsioManager::getService()
 {
     return mService;
 }

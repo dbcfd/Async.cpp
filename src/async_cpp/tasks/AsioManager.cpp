@@ -2,22 +2,37 @@
 #include "async_cpp/tasks/AsioManager.h"
 #include "async_cpp/tasks/Task.h"
 
+#include <boost/asio.hpp>
+
 #include <assert.h>
 
 namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
+class AsioManager::WorkWrapper {
+public:
+    WorkWrapper(boost::asio::io_service& service) : mWork(service)
+    {
+
+    }
+
+private:
+    boost::asio::io_service::work mWork;
+};
+
+//------------------------------------------------------------------------------
 AsioManager::AsioManager(const size_t nbThreads)
-    : IManager(), mWork(mService)
+    : IManager(), mService(std::make_shared<boost::asio::io_service>())
 {
     mRunning.store(true);
     mTasksOutstanding.store(0);
+    mWork = std::unique_ptr<WorkWrapper>(new WorkWrapper(*mService));
     
     for(size_t i = 0; i < nbThreads; ++i)
     {
         mThreads.emplace_back([this]()->void {
-            mService.run();
+            mService->run();
         });
     }
 }
@@ -52,7 +67,7 @@ void AsioManager::shutdown()
             mTasksPending.front()->failToPerform();
             mTasksPending.pop();
         }
-        mService.stop();
+        mService->stop();
         for(auto& thread : mThreads)
         {
             if(thread.joinable())
@@ -82,7 +97,7 @@ void AsioManager::run(std::shared_ptr<Task> task)
             std::unique_lock<std::mutex> lock(mTasksMutex);
             mTasksPending.push(task);
         }
-        mService.post([this]()->void {
+        mService->post([this]()->void {
             std::shared_ptr<Task> task;
             {
                 std::unique_lock<std::mutex> lock(mTasksMutex);
