@@ -21,7 +21,7 @@ public:
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
-    ParallelTerminalTask(std::shared_ptr<tasks::IManager> mgr);
+    ParallelTerminalTask(std::weak_ptr<tasks::IManager> mgr);
     ParallelTerminalTask(ParallelTerminalTask&& other);
     virtual ~ParallelTerminalTask();
 
@@ -40,7 +40,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
-ParallelTerminalTask<TDATA>::ParallelTerminalTask(std::shared_ptr<tasks::IManager> mgr) : IParallelTask(mgr)
+ParallelTerminalTask<TDATA>::ParallelTerminalTask(std::weak_ptr<tasks::IManager> mgr) : IParallelTask(mgr)
 {
     mFutureTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
         [](AsyncResult<TDATA>& result) -> AsyncResult<TDATA> 
@@ -82,7 +82,14 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     }
     else
     {
-        mManager->run(std::make_shared<ParallelTerminalTask<TDATA>>(std::move(*this)));
+        if(auto mgr = mManager.lock())
+        {
+            mgr->run(std::make_shared<ParallelTerminalTask<TDATA>>(std::move(*this)));
+        }
+        else
+        {
+            notifyFailureToPerform();
+        }
     }
 }
 

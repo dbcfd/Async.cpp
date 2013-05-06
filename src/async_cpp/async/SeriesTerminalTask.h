@@ -9,7 +9,7 @@ namespace async {
 template<class TDATA>
 class SeriesTerminalTask : public ISeriesTask<TDATA> {
 public:
-    SeriesTerminalTask(std::shared_ptr<tasks::IManager> mgr);
+    SeriesTerminalTask(std::weak_ptr<tasks::IManager> mgr);
     SeriesTerminalTask(SeriesTerminalTask&& other);
     virtual ~SeriesTerminalTask();
 
@@ -27,7 +27,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
-SeriesTerminalTask<TDATA>::SeriesTerminalTask(std::shared_ptr<tasks::IManager> mgr) : ISeriesTask<TDATA>(mgr)
+SeriesTerminalTask<TDATA>::SeriesTerminalTask(std::weak_ptr<tasks::IManager> mgr) : ISeriesTask<TDATA>(mgr)
 {
     mTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
         [](AsyncResult<TDATA>& forwardedResult) -> AsyncResult<TDATA> {
@@ -90,7 +90,14 @@ void SeriesTerminalTask<TDATA>::performSpecific()
         }
         else
         {
-            mManager->run(std::make_shared<SeriesTerminalTask<TDATA>>(std::move(*this)));
+            if(auto mgr = mManager.lock())
+            {
+                mgr->run(std::make_shared<SeriesTerminalTask<TDATA>>(std::move(*this)));
+            }
+            else
+            {
+                notifyFailureToPerform();
+            }
         }
     }
 }

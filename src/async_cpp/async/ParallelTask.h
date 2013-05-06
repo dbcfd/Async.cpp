@@ -14,7 +14,7 @@ namespace async {
 template<class TDATA, class TRESULT>
 class ParallelTask : public IParallelTask {
 public:
-    ParallelTask(std::shared_ptr<tasks::IManager> mgr, 
+    ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TDATA>>(void)> generateResult,
         std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> parallelCollectTask);
     virtual ~ParallelTask();
@@ -31,7 +31,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-ParallelTask<TDATA, TRESULT>::ParallelTask(std::shared_ptr<tasks::IManager> mgr, 
+ParallelTask<TDATA, TRESULT>::ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TDATA>>(void)> generateResult,
         std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> collectTask)
     : IParallelTask(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask)
@@ -62,7 +62,14 @@ void ParallelTask<TDATA, TRESULT>::performSpecific()
     auto tasksRemaining = mCollectTask->notifyTaskCompletion(std::move(future));
     if(0 == tasksRemaining)
     {
-        mManager->run(mCollectTask);
+        if(auto mgr = mManager.lock())
+        {  
+            mgr->run(mCollectTask);
+        }
+        else
+        {
+            mCollectTask->failToPerform();
+        }
     }
 }
 

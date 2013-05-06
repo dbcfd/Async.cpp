@@ -14,13 +14,13 @@ namespace async {
  */
 class ASYNC_CPP_ASYNC_API IParallelTask : public tasks::Task {
 public:
-    IParallelTask(std::shared_ptr<tasks::IManager> mgr);
+    IParallelTask(std::weak_ptr<tasks::IManager> mgr);
     virtual ~IParallelTask();
 
 protected:
     IParallelTask(const IParallelTask& other);
 
-    std::shared_ptr<tasks::IManager> mManager;
+    std::weak_ptr<tasks::IManager> mManager;
 };
 
 //inline implementations

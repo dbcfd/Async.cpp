@@ -10,7 +10,7 @@ namespace async {
 template<class TDATA>
 class ISeriesTask : public tasks::Task {
 public:
-    ISeriesTask(std::shared_ptr<tasks::IManager> mgr);
+    ISeriesTask(std::weak_ptr<tasks::IManager> mgr);
     ISeriesTask(ISeriesTask&& other);
     virtual ~ISeriesTask();
 
@@ -21,17 +21,17 @@ protected:
     ISeriesTask(const ISeriesTask& other);
 
     bool mIsCancelled;
-    std::shared_ptr<tasks::IManager> mManager;
+    std::weak_ptr<tasks::IManager> mManager;
     std::future<AsyncResult<TDATA>> mForwardedFuture;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
-ISeriesTask<TDATA>::ISeriesTask(std::shared_ptr<tasks::IManager> mgr)
+ISeriesTask<TDATA>::ISeriesTask(std::weak_ptr<tasks::IManager> mgr)
     : Task(), mManager(mgr), mIsCancelled(false)
 {
-    assert(mgr);
+    
 }
 
 //------------------------------------------------------------------------------

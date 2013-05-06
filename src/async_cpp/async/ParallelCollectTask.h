@@ -18,7 +18,7 @@ public:
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
-    ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
+    ParallelCollectTask(std::weak_ptr<tasks::IManager> mgr,
         const size_t tasksOutstanding, 
         std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult);
     ParallelCollectTask(ParallelCollectTask&& other);
@@ -42,7 +42,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(std::shared_ptr<tasks::IManager> mgr,
+ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(std::weak_ptr<tasks::IManager> mgr,
                                            const size_t tasksOutstanding, 
                                            std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult)
                                            : IParallelTask(mgr), 
@@ -88,7 +88,14 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
             futureToForward = AsyncResult<TRESULT>(ex.what()).asFulfilledFuture();
         }
         mTerminalTask->forwardResult(std::move(futureToForward));
-        mManager->run(mTerminalTask);
+        if(auto mgr = mManager.lock())
+        {
+            mgr->run(mTerminalTask);
+        }
+        else
+        {
+            mTerminalTask->failToPerform();
+        }
     }
     else
     {
@@ -109,7 +116,14 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
             }
         }
         mTaskFutures.swap(futuresOutstanding);
-        mManager->run(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(std::move(*this)));
+        if(auto mgr = mManager.lock())
+        {
+            mgr->run(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(std::move(*this)));
+        }
+        else
+        {
+            notifyFailureToPerform();
+        }
     }   
 }
 

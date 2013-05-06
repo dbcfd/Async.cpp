@@ -9,7 +9,7 @@ namespace async {
 template<class TDATA, class TRESULT>
 class SeriesCollectTask : public ISeriesTask<TDATA> {
 public:
-    SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr, 
+    SeriesCollectTask(std::weak_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> generateResult);
     SeriesCollectTask(SeriesCollectTask&& other);
     virtual ~SeriesCollectTask();
@@ -29,7 +29,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(std::shared_ptr<tasks::IManager> mgr,
+SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(std::weak_ptr<tasks::IManager> mgr,
                                      std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> generateResult)
                                      : ISeriesTask<TDATA>(mgr), 
                                      mGenerateResultFunc(generateResult),
@@ -85,11 +85,25 @@ void SeriesCollectTask<TDATA, TRESULT>::performSpecific()
                 future = AsyncResult<TRESULT>(ex.what()).asFulfilledFuture();
             }
             mTerminalTask->forwardFuture(std::move(future));
-            mManager->run(mTerminalTask);
+            if(auto mgr = mManager.lock())
+            {
+                mgr->run(mTerminalTask);
+            }
+            else
+            {
+                mTerminalTask->failToPerform();
+            }
         }
         else
         {
-            mManager->run(std::make_shared<SeriesCollectTask<TDATA, TRESULT>>(std::move(*this)));
+            if(auto mgr = mManager.lock())
+            {
+                mgr->run(std::make_shared<SeriesCollectTask<TDATA, TRESULT>>(std::move(*this)));
+            }
+            else
+            {
+                notifyFailureToPerform();
+            }
         }
     }
 }

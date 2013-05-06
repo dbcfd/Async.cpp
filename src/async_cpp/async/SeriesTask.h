@@ -15,7 +15,7 @@ public:
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
-    SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
+    SeriesTask(std::weak_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> generateResult,
         std::shared_ptr<ISeriesTask<TDATA>> nextTask);    
     SeriesTask(SeriesTask&& other);
@@ -35,7 +35,7 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
-SeriesTask<TDATA>::SeriesTask(std::shared_ptr<tasks::IManager> mgr, 
+SeriesTask<TDATA>::SeriesTask(std::weak_ptr<tasks::IManager> mgr, 
         std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)> generateResult,
         std::shared_ptr<ISeriesTask<TDATA>> nextTask)
     : ISeriesTask<TDATA>(mgr), mNextTask(nextTask), mGenerateResultFunc(generateResult)
@@ -88,11 +88,25 @@ void SeriesTask<TDATA>::performSpecific()
                 future = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
             }
             mNextTask->forwardFuture(std::move(future));
-            mManager->run(mNextTask);
+            if(auto mgr = mManager.lock())
+            {
+                mgr->run(mNextTask);
+            }
+            else
+            {
+                mNextTask->failToPerform();
+            }
         }
         else
         {
-            mManager->run(std::make_shared<SeriesTask<TDATA>>(std::move(*this)));
+            if(auto mgr = mManager.lock())
+            {
+                mgr->run(std::make_shared<SeriesTask<TDATA>>(std::move(*this)));
+            }
+            else
+            {
+                notifyFailureToPerform();
+            }
         }
     }
 }
