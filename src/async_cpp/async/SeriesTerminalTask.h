@@ -18,6 +18,7 @@ public:
 
 protected:
     virtual void performSpecific();
+    virtual void notifyFailureToPerform();
 
 private:    
     std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mTask;
@@ -99,6 +100,13 @@ template<class TDATA>
 std::future<AsyncResult<TDATA>> SeriesTerminalTask<TDATA>::getFuture()
 {
     return mTask.get_future();
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void SeriesTerminalTask<TDATA>::notifyFailureToPerform()
+{
+    mTask(AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform"));
 }
 
 }

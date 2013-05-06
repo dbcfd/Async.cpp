@@ -19,6 +19,7 @@ public:
     std::future<AsyncResult<TRESULT>> getFuture();
 protected:
     virtual void performSpecific();
+    virtual void notifyFailureToPerform();
 
 private:
     std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> mGenerateResultFunc;
@@ -98,6 +99,13 @@ template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> SeriesCollectTask<TDATA, TRESULT>::getFuture()
 {
     return mTerminalTask->getFuture();
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+void SeriesCollectTask<TDATA, TRESULT>::notifyFailureToPerform()
+{
+    mTerminalTask->failToPerform();
 }
 
 }

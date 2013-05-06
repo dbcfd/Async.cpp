@@ -28,6 +28,7 @@ public:
     std::future<AsyncResult<TRESULT>> getFuture();
 protected:
     virtual void performSpecific();
+    virtual void notifyFailureToPerform();
 
 private:
     std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> mGenerateResultFunc;
@@ -110,6 +111,13 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
         mTaskFutures.swap(futuresOutstanding);
         mManager->run(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(std::move(*this)));
     }   
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+void ParallelCollectTask<TDATA, TRESULT>::notifyFailureToPerform()
+{
+    mTerminalTask->failToPerform();
 }
 
 //------------------------------------------------------------------------------

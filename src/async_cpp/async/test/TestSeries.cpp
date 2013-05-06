@@ -55,6 +55,50 @@ TEST(SERIES_TEST, BASIC)
     manager->shutdown();
 }
 
+TEST(SERIES_TEST, INTERRUPT)
+{
+    auto manager(std::make_shared<tasks::Manager>(5));
+
+    std::function<std::future<AsyncResult<size_t>>(const AsyncResult<size_t>&)> opsArray[] = {
+        [](const AsyncResult<size_t>& res)-> std::future<AsyncResult<size_t>> {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<size_t>(std::make_shared<size_t>(0)).asFulfilledFuture();
+        },
+        [](const AsyncResult<size_t>& res)->std::future<AsyncResult<size_t>> {
+            auto previous = res.throwOrGet();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<size_t>(std::make_shared<size_t>(*previous + 1)).asFulfilledFuture();
+        },
+        [](const AsyncResult<size_t>& res)->std::future<AsyncResult<size_t>> {
+            auto previous = res.throwOrGet();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<size_t>(std::make_shared<size_t>(*previous + 1)).asFulfilledFuture();
+        },
+        [](const AsyncResult<size_t>& res)->std::future<AsyncResult<size_t>> {
+            auto previous = res.throwOrGet();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<size_t>(std::make_shared<size_t>(*previous + 1)).asFulfilledFuture();
+        },
+        [](const AsyncResult<size_t>& res)->std::future<AsyncResult<size_t>> {
+            auto previous = res.throwOrGet();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<size_t>(std::make_shared<size_t>(*previous + 1)).asFulfilledFuture();
+        }
+    };
+
+    auto future = Series<size_t, bool>(manager, opsArray, 5).execute(
+        [](const AsyncResult<size_t>& result)->std::future<AsyncResult<bool>> {
+            bool wasSuccessful = (4 == *result.throwOrGet());
+            return AsyncResult<bool>(std::make_shared<bool>(wasSuccessful)).asFulfilledFuture();
+        } );
+
+    manager->shutdown();
+
+    AsyncResult<bool> asyncResult;
+    ASSERT_NO_THROW(asyncResult = future.get());
+    ASSERT_THROW(asyncResult.throwOrGet(), std::runtime_error);
+}
+
 TEST(SERIES_TEST, TIMING)
 {
     typedef std::chrono::high_resolution_clock::time_point data_t;

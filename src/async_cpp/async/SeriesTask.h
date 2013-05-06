@@ -24,6 +24,7 @@ public:
     virtual void cancel();
 
 protected:
+    virtual void notifyFailureToPerform();
     virtual void performSpecific();
 
 private:
@@ -96,6 +97,12 @@ void SeriesTask<TDATA>::performSpecific()
     }
 }
 
+//------------------------------------------------------------------------------
+template<class TDATA>
+void SeriesTask<TDATA>::notifyFailureToPerform()
+{
+    mNextTask->failToPerform();
+}
 
 }
 }

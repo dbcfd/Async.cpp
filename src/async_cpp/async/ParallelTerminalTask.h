@@ -30,6 +30,7 @@ public:
     void forwardResult(std::future<AsyncResult<TDATA>>&& futureResult);
 protected:
     virtual void performSpecific();
+    virtual void notifyFailureToPerform();
 
 private:
     std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mFutureTask;
@@ -83,6 +84,13 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     {
         mManager->run(std::make_shared<ParallelTerminalTask<TDATA>>(std::move(*this)));
     }
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void ParallelTerminalTask<TDATA>::notifyFailureToPerform()
+{
+    mFutureTask(AsyncResult<TDATA>("ParallelTerminalTask: Failed to perform"));
 }
 
 //------------------------------------------------------------------------------

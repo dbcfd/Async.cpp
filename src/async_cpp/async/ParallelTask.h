@@ -21,6 +21,7 @@ public:
 
 protected:
     virtual void performSpecific();
+    virtual void notifyFailureToPerform();
 
 private:
     std::function<std::future<AsyncResult<TDATA>>(void)> mGenerateResultFunc;
@@ -62,6 +63,17 @@ void ParallelTask<TDATA, TRESULT>::performSpecific()
     if(0 == tasksRemaining)
     {
         mManager->run(mCollectTask);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+void ParallelTask<TDATA, TRESULT>::notifyFailureToPerform()
+{
+    auto tasksRemaining = mCollectTask->notifyTaskCompletion(AsyncResult<TDATA>("ParallelTask: Failed to perform").asFulfilledFuture());
+    if(0 == tasksRemaining)
+    {
+        mCollectTask->failToPerform();
     }
 }
 

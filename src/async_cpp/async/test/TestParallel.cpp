@@ -73,6 +73,61 @@ TEST(PARALLEL_TEST, BASIC)
     manager->shutdown();
 }
 
+TEST(PARALLEL_TEST, INTERRUPT)
+{
+    auto manager(std::make_shared<tasks::Manager>(5));
+    std::atomic<int> runCount(1);
+    std::vector<int> taskRunOrder(6, 0);
+
+    std::function<std::future<AsyncResult<void>>(void)> opsArray[] = {
+        [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
+            taskRunOrder[0] = runCount.fetch_add(1); 
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<void>().asFulfilledFuture();
+        }, 
+        [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
+            taskRunOrder[1] = runCount.fetch_add(1); 
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<void>().asFulfilledFuture();
+        },
+        [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
+            taskRunOrder[2] = runCount.fetch_add(1); 
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<void>().asFulfilledFuture();
+        },
+        [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
+            taskRunOrder[3] = runCount.fetch_add(1); 
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<void>().asFulfilledFuture();
+        },
+        [&taskRunOrder, &runCount]()->std::future<AsyncResult<void>> { 
+            taskRunOrder[4] = runCount.fetch_add(1); 
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return AsyncResult<void>().asFulfilledFuture();
+        }
+    };
+
+    auto parallelResult = Parallel<void,bool>(manager, opsArray, 5).execute(
+        [&taskRunOrder, &runCount](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<bool>> {
+            bool allSuccessful = true;
+            for(auto& result : results)
+            {
+                bool wasError = result.wasError();
+                allSuccessful &= !wasError;
+            }
+            if(allSuccessful)
+            {
+                taskRunOrder[5] = runCount;
+            }
+            return AsyncResult<bool>(std::make_shared<bool>(allSuccessful)).asFulfilledFuture();
+        } );
+
+    manager->shutdown();
+    AsyncResult<bool> result;
+    ASSERT_NO_THROW(result = parallelResult.get());
+    ASSERT_THROW(result.throwOrGet(), std::runtime_error);
+}
+
 TEST(PARALLEL_TEST, TIMING)
 {
     typedef std::chrono::high_resolution_clock::time_point data_t;
