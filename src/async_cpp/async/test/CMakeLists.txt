@@ -2,6 +2,10 @@ set (TARGET TestAsync)
 
 file(GLOB SOURCES "*.cpp")
 
+if(Boost_FOUND)
+	add_definitions("-DHAS_BOOST")
+endif()
+
 include(UseGtest)
 UseGtest(${TARGET} DEPENDENCIES ${SOURCES})
 
