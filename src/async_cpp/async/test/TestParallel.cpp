@@ -63,10 +63,7 @@ TEST(PARALLEL_TEST, BASIC)
     std::shared_ptr<bool> wasSuccessful;
     ASSERT_NO_THROW(wasSuccessful = result.throwOrGet());
 
-    for(int countNumber : taskRunOrder)
-    {
-        ASSERT_LE(5, runCount);
-    }
+    ASSERT_LE(5, runCount);
 
     ASSERT_TRUE(wasSuccessful && *wasSuccessful);
 

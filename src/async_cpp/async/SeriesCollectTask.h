@@ -75,16 +75,14 @@ void SeriesCollectTask<TDATA, TRESULT>::performSpecific()
         if(std::future_status::ready == mForwardedFuture.wait_for(std::chrono::milliseconds(0)))
 #endif
         {
-            std::future<AsyncResult<TRESULT>> future;
             try
             {
-                future = mGenerateResultFunc(mForwardedFuture.get());
+                mTerminalTask->forwardFuture(mGenerateResultFunc(mForwardedFuture.get()));
             }
             catch(std::runtime_error& ex)
             {
-                future = AsyncResult<TRESULT>(ex.what()).asFulfilledFuture();
+                mTerminalTask->forwardFuture(AsyncResult<TRESULT>(ex.what()).asFulfilledFuture());
             }
-            mTerminalTask->forwardFuture(std::move(future));
             if(auto mgr = mManager.lock())
             {
                 mgr->run(mTerminalTask);

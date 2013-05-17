@@ -19,7 +19,7 @@ TEST(SERIES_TEST, BASIC)
     auto manager(std::make_shared<tasks::Manager>(5));
 
     std::function<std::future<AsyncResult<size_t>>(const AsyncResult<size_t>&)> opsArray[] = {
-        [](const AsyncResult<size_t>& res)-> std::future<AsyncResult<size_t>> {
+        [](const AsyncResult<size_t>&)-> std::future<AsyncResult<size_t>> {
             return AsyncResult<size_t>(std::make_shared<size_t>(0)).asFulfilledFuture();
         },
         [](const AsyncResult<size_t>& res)->std::future<AsyncResult<size_t>> {
@@ -60,7 +60,7 @@ TEST(SERIES_TEST, INTERRUPT)
     auto manager(std::make_shared<tasks::Manager>(5));
 
     std::function<std::future<AsyncResult<size_t>>(const AsyncResult<size_t>&)> opsArray[] = {
-        [](const AsyncResult<size_t>& res)-> std::future<AsyncResult<size_t>> {
+        [](const AsyncResult<size_t>&)-> std::future<AsyncResult<size_t>> {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             return AsyncResult<size_t>(std::make_shared<size_t>(0)).asFulfilledFuture();
         },
@@ -106,7 +106,7 @@ TEST(SERIES_TEST, TIMING)
 
     std::vector<std::shared_ptr<data_t>> times;
     times.reserve(6);
-    auto func = [&times](const AsyncResult<data_t>& res)->std::future<AsyncResult<data_t>> {
+    auto func = [&times](const AsyncResult<data_t>&)->std::future<AsyncResult<data_t>> {
         auto time = std::make_shared<data_t>(std::chrono::high_resolution_clock::now());
         times.emplace_back(time); //no need to worry about locking since we're running serially
         return AsyncResult<data_t>(time).asFulfilledFuture();
@@ -122,7 +122,7 @@ TEST(SERIES_TEST, TIMING)
 
     Series<data_t, bool> series(manager, opsArray, 5);
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = series.execute([&times, &start](const AsyncResult<data_t>& result)->std::future<AsyncResult<bool>> {
+    auto future = series.execute([&times, &start](const AsyncResult<data_t>&)->std::future<AsyncResult<bool>> {
         auto time = std::make_shared<data_t>(std::chrono::high_resolution_clock::now());
         times.emplace_back(time); //no need to worry about locking since we're running serially
         return AsyncResult<bool>(std::make_shared<bool>(true)).asFulfilledFuture();
@@ -154,7 +154,7 @@ TEST(SERIES_TEST, ASIO_TIMING)
 
     std::vector<std::shared_ptr<data_t>> times;
     times.reserve(6);
-    auto func = [&times](const AsyncResult<data_t>& res)->std::future<AsyncResult<data_t>> {
+    auto func = [&times](const AsyncResult<data_t>&)->std::future<AsyncResult<data_t>> {
         auto time = std::make_shared<data_t>(std::chrono::high_resolution_clock::now());
         times.emplace_back(time); //no need to worry about locking since we're running serially
         return AsyncResult<data_t>(time).asFulfilledFuture();
@@ -170,7 +170,7 @@ TEST(SERIES_TEST, ASIO_TIMING)
 
     Series<data_t, bool> series(manager, opsArray, 5);
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = series.execute([&times, &start](const AsyncResult<data_t>& result)->std::future<AsyncResult<bool>> {
+    auto future = series.execute([&times, &start](const AsyncResult<data_t>&)->std::future<AsyncResult<bool>> {
         auto time = std::make_shared<data_t>(std::chrono::high_resolution_clock::now());
         times.emplace_back(time); //no need to worry about locking since we're running serially
         return AsyncResult<bool>(std::make_shared<bool>(true)).asFulfilledFuture();

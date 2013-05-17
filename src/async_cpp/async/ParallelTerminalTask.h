@@ -33,7 +33,7 @@ protected:
     virtual void notifyFailureToPerform();
 
 private:
-    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mFutureTask;
+    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&&)> mFutureTask;
     std::future<AsyncResult<TDATA>> mGeneratedFuture;
 };
 
@@ -42,8 +42,8 @@ private:
 template<class TDATA>
 ParallelTerminalTask<TDATA>::ParallelTerminalTask(std::weak_ptr<tasks::IManager> mgr) : IParallelTask(mgr)
 {
-    mFutureTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
-        [](AsyncResult<TDATA>& result) -> AsyncResult<TDATA> 
+    mFutureTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&&)>(
+        [](AsyncResult<TDATA>&& result) -> AsyncResult<TDATA> 
         {
             return std::move(result);
         }
@@ -77,8 +77,7 @@ void ParallelTerminalTask<TDATA>::performSpecific()
     if(std::future_status::ready == mGeneratedFuture.wait_for(std::chrono::milliseconds(0)))
 #endif
     {
-        auto result = mGeneratedFuture.get();
-        mFutureTask(result);
+        mFutureTask(std::move(mGeneratedFuture.get()));
     }
     else
     {
@@ -97,8 +96,7 @@ void ParallelTerminalTask<TDATA>::performSpecific()
 template<class TDATA>
 void ParallelTerminalTask<TDATA>::notifyFailureToPerform()
 {
-    auto result = AsyncResult<TDATA>("ParallelTerminalTask: Failed to perform");
-    mFutureTask(result);
+    mFutureTask(std::move(AsyncResult<TDATA>("ParallelTerminalTask: Failed to perform")));
 }
 
 //------------------------------------------------------------------------------

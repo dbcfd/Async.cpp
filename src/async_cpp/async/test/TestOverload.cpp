@@ -28,13 +28,13 @@ TEST(OVERLOAD_TEST, SERIES)
     };
 
     auto parallel5 = ParallelFor<void, void>(manager,
-        [](size_t index)->std::future<AsyncResult<void>> {
+        [](size_t)->std::future<AsyncResult<void>> {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     return AsyncResult<void>().asFulfilledFuture();
         }, 5).execute();
 
     auto parallel25 = ParallelFor<void, void>(manager,
-        [](size_t index)->std::future<AsyncResult<void>> {
+        [](size_t)->std::future<AsyncResult<void>> {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             return AsyncResult<void>().asFulfilledFuture();
         }, 25).execute();
@@ -102,13 +102,13 @@ TEST(OVERLOAD_TEST, PARALLEL)
     };
 
     auto parallel5 = ParallelFor<void, void>(manager,
-        [](size_t index)->std::future<AsyncResult<void>> {
+        [](size_t)->std::future<AsyncResult<void>> {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     return AsyncResult<void>().asFulfilledFuture();
         }, 5).execute();
 
     auto parallel25 = ParallelFor<void, void>(manager,
-        [](size_t index)->std::future<AsyncResult<void>> {
+        [](size_t)->std::future<AsyncResult<void>> {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             return AsyncResult<void>().asFulfilledFuture();
         }, 25).execute();

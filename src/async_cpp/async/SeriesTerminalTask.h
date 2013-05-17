@@ -21,7 +21,7 @@ protected:
     virtual void notifyFailureToPerform();
 
 private:    
-    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)> mTask;
+    std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&&)> mTask;
 };
 
 //inline implementations
@@ -29,8 +29,8 @@ private:
 template<class TDATA>
 SeriesTerminalTask<TDATA>::SeriesTerminalTask(std::weak_ptr<tasks::IManager> mgr) : ISeriesTask<TDATA>(mgr)
 {
-    mTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&)>(
-        [](AsyncResult<TDATA>& forwardedResult) -> AsyncResult<TDATA> {
+    mTask = std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&&)>(
+        [](AsyncResult<TDATA>&& forwardedResult) -> AsyncResult<TDATA> {
             return std::move(forwardedResult);
         }
     );
@@ -57,7 +57,7 @@ template<class TDATA>
 void SeriesTerminalTask<TDATA>::cancel()
 {
     try {
-        mTask(AsyncResult<TDATA>("Cancelled Task"));
+        mTask(std::move(AsyncResult<TDATA>("Cancelled Task")));
         mIsCancelled = true;
     }
     catch(std::future_error&)
@@ -80,8 +80,7 @@ void SeriesTerminalTask<TDATA>::performSpecific()
         {
             try
             {
-                auto result = mForwardedFuture.get();
-                mTask(result);
+                mTask(std::move(mForwardedFuture.get()));
             }
             catch(std::future_error&)
             {
@@ -113,8 +112,7 @@ std::future<AsyncResult<TDATA>> SeriesTerminalTask<TDATA>::getFuture()
 template<class TDATA>
 void SeriesTerminalTask<TDATA>::notifyFailureToPerform()
 {
-    auto result = AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform");
-    mTask(result);
+    mTask(std::move(AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform")));
 }
 
 }

@@ -79,15 +79,13 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
 {
     if(mTaskFutures.empty())
     {
-        std::future<AsyncResult<TRESULT>> futureToForward;
         try {
-            futureToForward = mGenerateResultFunc(mTaskResults);
+            mTerminalTask->forwardResult(mGenerateResultFunc(mTaskResults));
         }
         catch(std::exception& ex)
         {
-            futureToForward = AsyncResult<TRESULT>(ex.what()).asFulfilledFuture();
+            mTerminalTask->forwardResult(AsyncResult<TRESULT>(ex.what()).asFulfilledFuture());
         }
-        mTerminalTask->forwardResult(std::move(futureToForward));
         if(auto mgr = mManager.lock())
         {
             mgr->run(mTerminalTask);

@@ -83,8 +83,7 @@ std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<
     std::shared_ptr<ISeriesTask<TDATA>> nextTask = finishTask;
     for(auto iter = mOperations.rbegin(); iter != mOperations.rend(); ++iter)
     {
-        auto op = (*iter);
-        nextTask = std::make_shared<SeriesTask<TDATA>>(mManager, op, nextTask);
+        nextTask = std::make_shared<SeriesTask<TDATA>>(mManager, (*iter), nextTask);
     }
 
     nextTask->forwardFuture(AsyncResult<TDATA>().asFulfilledFuture());
@@ -97,7 +96,7 @@ std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<
 template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute()
 {
-    return execute([](const AsyncResult<TDATA>& in)->std::future<AsyncResult<TRESULT>> { 
+    return execute([](const AsyncResult<TDATA>&)->std::future<AsyncResult<TRESULT>> { 
         return AsyncResult<TRESULT>().asFulfilledFuture();
     });
 }
