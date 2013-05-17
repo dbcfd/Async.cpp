@@ -8,7 +8,7 @@ include(SetBuildProperties)
 #project variables
 project(Async CXX C)
 
-set(version 0.10.2)
+set(version 0.10.3)
 
 set(PROJECT_SO_VERSION ${version})
 
