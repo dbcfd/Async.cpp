@@ -18,20 +18,19 @@ void Task::buildMembers()
     mTask = std::packaged_task<bool(bool)>(
         [this](bool isFailing)-> bool 
         {
-            bool successful = false;
             if(!isFailing)
             {
                 try 
                 {
                     performSpecific();
-                    successful = true;
+                    return true;
                 }
                 catch(std::exception& ex)
                 {
                     onException(ex);
                 }
             }
-            return successful;
+            return false;
         } );
     mTaskCompleteFuture = mTask.get_future();
 }
