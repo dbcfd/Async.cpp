@@ -55,9 +55,13 @@ void ParallelTask<TDATA, TRESULT>::performSpecific()
     {
         future = mGenerateResultFunc();
     }
-    catch(std::runtime_error& ex)
+    catch(std::exception& ex)
     {
         future = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
+    }
+    catch(...)
+    {
+        future = AsyncResult<TDATA>("Parallel(For/Each): Unknown exception, please verify parallel tasks or use std::exception").asFulfilledFuture();
     }
     auto tasksRemaining = mCollectTask->notifyTaskCompletion(std::move(future));
     if(0 == tasksRemaining)

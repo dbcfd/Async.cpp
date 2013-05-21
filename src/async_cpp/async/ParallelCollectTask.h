@@ -86,6 +86,10 @@ void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
         {
             mTerminalTask->forwardResult(AsyncResult<TRESULT>(ex.what()).asFulfilledFuture());
         }
+        catch(...)
+        {
+            mTerminalTask->forwardResult(AsyncResult<TRESULT>("Parallel(For/Eeach): Unknown exception, please verify parallel tasks or use std::exception").asFulfilledFuture());
+        }
         if(auto mgr = mManager.lock())
         {
             mgr->run(mTerminalTask);

@@ -79,9 +79,13 @@ void SeriesCollectTask<TDATA, TRESULT>::performSpecific()
             {
                 mTerminalTask->forwardFuture(mGenerateResultFunc(mForwardedFuture.get()));
             }
-            catch(std::runtime_error& ex)
+            catch(std::exception& ex)
             {
                 mTerminalTask->forwardFuture(AsyncResult<TRESULT>(ex.what()).asFulfilledFuture());
+            }
+            catch(...)
+            {
+                mTerminalTask->forwardFuture(AsyncResult<TRESULT>("Series: Unknown exception, please verify series tasks or use std::exception").asFulfilledFuture());
             }
             if(auto mgr = mManager.lock())
             {

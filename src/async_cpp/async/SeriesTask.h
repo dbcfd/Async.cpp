@@ -82,9 +82,13 @@ void SeriesTask<TDATA>::performSpecific()
             {
                 mNextTask->forwardFuture(mGenerateResultFunc(mForwardedFuture.get()));
             }
-            catch(std::runtime_error& ex)
+            catch(std::exception& ex)
             {
                 mNextTask->forwardFuture(AsyncResult<TDATA>(ex.what()).asFulfilledFuture());
+            }
+            catch(...)
+            {
+                mNextTask->forwardFuture(AsyncResult<TDATA>("Series: Unknown exception, please verify series tasks or use std::exception").asFulfilledFuture());
             }
             if(auto mgr = mManager.lock())
             {
