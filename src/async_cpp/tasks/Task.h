@@ -1,5 +1,5 @@
 #pragma once
-#include "async_cpp/tasks/Platform.h"
+#include "async_cpp/tasks/Tasks.h"
 
 #include <atomic>
 #include <functional>

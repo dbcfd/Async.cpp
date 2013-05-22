@@ -4,9 +4,6 @@
 #include "async_cpp/tasks/Task.h"
 
 namespace async_cpp {
-namespace task {
-class IManager;
-}
 namespace async {
 
 /**
