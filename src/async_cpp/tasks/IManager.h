@@ -34,6 +34,13 @@ public:
      * @return True if manager is running
      */
     virtual const bool isRunning() = 0;
+
+    /**
+     * The ideal number of tasks that can be run at once, such that they should all run at approximately the same time. This is
+     * most likely the number of threads/workers.
+     * @return Ideal number of tasks to run at once
+     */
+    virtual size_t idealNumberOfSimultaneousTasks() const = 0;
 };
 
 //inline implementations

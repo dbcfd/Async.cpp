@@ -107,9 +107,17 @@ void AsioManager::run(std::shared_ptr<Task> task)
                     mTasksPending.pop();
                 }
                 mTasksOutstanding.fetch_add(1);
-                task->perform();
-                mTasksOutstanding.fetch_sub(1);
-                mTasksSignal.notify_all();
+                try
+                {
+                    task->perform();
+                    mTasksOutstanding.fetch_sub(1);
+                    mTasksSignal.notify_all();
+                }
+                catch(...)
+                {
+                    mTasksOutstanding.fetch_sub(1);
+                    mTasksSignal.notify_all();
+                }
             }
         } );
     }  

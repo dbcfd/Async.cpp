@@ -29,23 +29,30 @@ public:
      * Run a task on the first available worker, queueing if none are available.
      * @param task Task to run
      */
-    virtual void run(std::shared_ptr<Task> task);
+    virtual void run(std::shared_ptr<Task> task) final;
 
     /**
      * Shutdown this manager, including all workers. Any queued tasks will be marked as failing to complete.
      */
-    virtual void shutdown();
+    virtual void shutdown() final;
 
     /**
      * Wait for all tasks running or queued to complete.
      */
-    virtual void waitForTasksToComplete();
+    virtual void waitForTasksToComplete() final;
+
+    /**
+     * The ideal number of tasks that can be run at once, such that they should all run at approximately the same time. This is
+     * most likely the number of threads/workers.
+     * @return Ideal number of tasks to run at once
+     */
+    inline virtual size_t idealNumberOfSimultaneousTasks() const final;
 
     /**
      * Flag indicating whether this manager is running. If not running, any tasks passed to it will be marked as failing to complete.
      * @return True if manager is running
      */
-    inline virtual const bool isRunning();
+    inline virtual const bool isRunning() final;
 protected:
     void run();
 
@@ -69,6 +76,12 @@ protected:
 const bool Manager::isRunning()
 {
     return mRunning;
+}
+
+//------------------------------------------------------------------------------
+size_t Manager::idealNumberOfSimultaneousTasks() const
+{
+    return mWorkers.size();
 }
 
 }
