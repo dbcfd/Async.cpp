@@ -24,8 +24,8 @@ public:
     virtual void cancel();
 
 protected:
-    virtual void notifyFailureToPerform();
-    virtual void performSpecific();
+    virtual void notifyFailureToPerform() final;
+    virtual void performSpecific() final;
 
 private:
     std::shared_ptr<ISeriesTask<TDATA>> mNextTask;

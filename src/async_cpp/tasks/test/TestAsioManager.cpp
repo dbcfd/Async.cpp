@@ -8,15 +8,15 @@
 #include<thread>
 using namespace async_cpp::tasks;
 
-class TestTask : public Task
+class AsioTestTask : public Task
 {
 public:
-    TestTask() : wasPerformed(false)
+    AsioTestTask() : wasPerformed(false)
     {
 
     }
 
-    virtual ~TestTask()
+    virtual ~AsioTestTask()
     {
 
     }
@@ -24,12 +24,11 @@ public:
     bool wasPerformed;
 
 private:
-    virtual void performSpecific()
+    virtual void performSpecific() final
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         wasPerformed = true;
     }
-
 };
 
 TEST(ASIO_MANAGER_TEST, BASIC_TEST)
@@ -38,11 +37,13 @@ TEST(ASIO_MANAGER_TEST, BASIC_TEST)
     std::vector< std::shared_ptr<Task> > tasks;
     for(size_t i = 0; i < 5; ++i) 
     {
-        tasks.emplace_back(std::make_shared<TestTask>());
+        tasks.emplace_back(std::make_shared<AsioTestTask>());
     }
 
     //less workers than tasks, make sure they can go back and grab tasks
     AsioManager manager(2);
+
+    EXPECT_EQ(2, manager.idealNumberOfSimultaneousTasks());
 
     for(auto task : tasks)
     {
@@ -67,7 +68,7 @@ TEST(ASIO_MANAGER_TEST, INTERMITTENT_TEST)
     std::vector< std::shared_ptr<Task> > tasks;
     for(size_t i = 0; i < 10; ++i) 
     {
-        tasks.emplace_back(std::make_shared<TestTask>());
+        tasks.emplace_back(std::make_shared<AsioTestTask>());
     }
 
     //less workers than tasks, make sure they can go back and grab tasks
@@ -123,7 +124,7 @@ TEST(ASIO_MANAGER_TEST, WAIT_FOR_COMPLETION)
     std::vector< std::shared_ptr<Task> > tasks;
     for(size_t i = 0; i < 10; ++i) 
     {
-        tasks.emplace_back(std::make_shared<TestTask>());
+        tasks.emplace_back(std::make_shared<AsioTestTask>());
     }
 
     //less workers than tasks, make sure they can go back and grab tasks

@@ -60,7 +60,7 @@ void Task::failToPerform()
     if(!wasInvoked) 
     {
         mTask(true);
-        notifyFailureToPerform();
+        this->notifyFailureToPerform();
     }
 }
 

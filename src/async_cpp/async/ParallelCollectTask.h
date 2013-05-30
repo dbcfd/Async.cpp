@@ -27,8 +27,8 @@ public:
     size_t notifyTaskCompletion(std::future<AsyncResult<TDATA>>&& futureResult);
     std::future<AsyncResult<TRESULT>> getFuture();
 protected:
-    virtual void performSpecific();
-    virtual void notifyFailureToPerform();
+    virtual void performSpecific() final;
+    virtual void notifyFailureToPerform() final;
 
 private:
     std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> mGenerateResultFunc;

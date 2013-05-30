@@ -29,8 +29,8 @@ public:
 
     void forwardResult(std::future<AsyncResult<TDATA>>&& futureResult);
 protected:
-    virtual void performSpecific();
-    virtual void notifyFailureToPerform();
+    virtual void performSpecific() final;
+    virtual void notifyFailureToPerform() final;
 
 private:
     std::packaged_task<AsyncResult<TDATA>(AsyncResult<TDATA>&&)> mFutureTask;

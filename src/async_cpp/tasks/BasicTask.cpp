@@ -21,5 +21,17 @@ void BasicTask::performSpecific()
     mFunctionToRun();
 }
 
+//------------------------------------------------------------------------------
+void BasicTask::onException(const std::exception&)
+{
+    //do nothing
+}
+
+//------------------------------------------------------------------------------
+void BasicTask::notifyFailureToPerform()
+{
+    //do nothing
+}
+
 }
 }

@@ -20,8 +20,8 @@ public:
     virtual ~ParallelTask();
 
 protected:
-    virtual void performSpecific();
-    virtual void notifyFailureToPerform();
+    virtual void performSpecific() final;
+    virtual void notifyFailureToPerform() final;
 
 private:
     std::function<std::future<AsyncResult<TDATA>>(void)> mGenerateResultFunc;

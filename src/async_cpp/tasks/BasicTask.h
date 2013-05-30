@@ -21,6 +21,8 @@ public:
 
 protected:
     virtual void performSpecific() final;
+    virtual void notifyFailureToPerform() final;
+    virtual void onException(const std::exception& ex) final;
 
 private:
     std::function<void(void)> mFunctionToRun;

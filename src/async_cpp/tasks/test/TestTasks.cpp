@@ -11,7 +11,7 @@ using namespace async_cpp::tasks;
 class TestTask : public Task
 {
 public:
-    TestTask() : wasPerformed(false), failedToPerform(true)
+    TestTask() : wasPerformed(false), failedToPerform(false)
     {
 
     }
@@ -25,13 +25,13 @@ public:
     bool failedToPerform;
 
 private:
-    virtual void performSpecific()
+    virtual void performSpecific() final
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         wasPerformed = true;
     }
 
-    virtual void notifyFailureToPerform()
+    virtual void notifyFailureToPerform() final
     {
         failedToPerform = true;
     }
@@ -70,7 +70,7 @@ public:
     bool wasPerformed;
     bool wasPerformedTwice;
 private:
-    virtual void performSpecific()
+    virtual void performSpecific() final
     {
         if(wasPerformed)
         {
@@ -108,7 +108,7 @@ TEST(TASKS_TEST, REPEATED_TASK)
 class TestExceptionTask : public Task
 {
 public:
-    TestExceptionTask()
+    TestExceptionTask() : hadException(false)
     {
 
     }
@@ -118,11 +118,19 @@ public:
 
     }
 
+    bool hadException;
+
 private:
     virtual void performSpecific()
     {
         throw(std::runtime_error("Task threw an error"));
     }
+
+    virtual void onException(const std::exception&) final
+    {
+        hadException = true;
+    }
+    
 
 };
 
@@ -132,7 +140,8 @@ TEST(TASKS_TEST, EXCEPTION_TASK)
 
     task.perform();
 
-    ASSERT_FALSE(task.wasSuccessful()); //task failed due to exception
+    EXPECT_FALSE(task.wasSuccessful()); //task failed due to exception
+    EXPECT_TRUE(task.hadException);
 }
 
 class WorkerComplete
@@ -204,6 +213,8 @@ TEST(TASKS_TEST, MANAGER_TEST)
         //less workers than tasks, make sure they can go back and grab tasks
         Manager manager(2);
 
+        EXPECT_EQ(2, manager.idealNumberOfSimultaneousTasks());
+
         for(auto task : tasks)
         {
             manager.run(task);
@@ -271,7 +282,8 @@ TEST(TASKS_TEST, MANAGER_TEST)
 
         {
             EXPECT_FALSE(tasks[9]->wasSuccessful());
-            EXPECT_TRUE(std::static_pointer_cast<TestTask>(tasks[9])->failedToPerform);
+            auto testTask = std::static_pointer_cast<TestTask>(tasks[9]);
+            EXPECT_TRUE(testTask->failedToPerform);
         }
 
         //make sure cleanup shuts down correctly
