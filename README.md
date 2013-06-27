@@ -137,6 +137,48 @@ Run an operation over a set of data, where the final results are passed to the c
         }
         return AsyncResult<result_t>(std::make_shared<result_t>(maxDur)).asFulfilledFuture();
     } );
+    
+### Map ###
+Run an operation over a set of data that converts an item to another item, where the final results are passed to the completiion function.
+
+    auto op = [](std::shared_ptr<int> a) -> std::shared_ptr<int> {
+        return std::make_shared<int>(*a * *a);
+    };
+
+    auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {
+        return result.asFulfilledFuture();
+    };
+
+    AsyncResult<std::vector<std::shared_ptr<int>>> result;
+    result = Map<int, int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
+    
+### Filter ###
+Filter a set of data based on some function, where the filtered results are passed to the completion function.
+
+    auto op = [](std::shared_ptr<int> a) -> bool {
+        return *a % 2 == 0;
+    };
+
+    auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {
+        return result.asFulfilledFuture();
+    };
+
+    AsyncResult<std::vector<std::shared_ptr<int>>> result;
+    result = Filter<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
+    
+### Unique ###
+Find a set of unique items in a set of data, based on some equality function. Unique items are passed to the completion function.
+
+    auto op = [](std::shared_ptr<int> a, std::shared_ptr<int> b) -> bool {
+        return *a == *b;
+    };
+
+    auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {
+        return result.asFulfilledFuture();
+    };
+
+    AsyncResult<std::vector<std::shared_ptr<int>>> result;
+    result = Unique<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
 
 ## Build Instructions ##
 Obtain a C++11 compatible compiler (VS2011, Gcc) and CMake 2.8.4 or higher. Run Cmake (preferably from the build directory).
