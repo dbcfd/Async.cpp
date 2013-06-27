@@ -1,6 +1,17 @@
 set (TARGET TestAsync)
 
-file(GLOB SOURCES "*.cpp")
+set(SOURCES
+    TestAsioOverload.cpp
+    TestFilter.cpp
+    TestMap.cpp
+    TestOverload.cpp
+    TestParallel.cpp
+    TestParallelFor.cpp
+    TestParallelForEach.cpp
+    TestRunner.cpp
+    TestSeries.cpp
+    TestUnique.cpp
+)
 
 if(Boost_FOUND)
 	add_definitions("-DHAS_BOOST")
