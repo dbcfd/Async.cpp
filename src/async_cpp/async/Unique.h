@@ -1,82 +1,93 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelTask.h"
+#include "async_cpp/async/ParallelForEach.h"
+
+#include <vector>
 
 namespace async_cpp {
 namespace async {
 
 /**
- * Perform an operation in parallel for a number of times, optionally calling a function to examine all results once parallel 
- * operations are complete. Each task will be passed an index as data.
+ * Find unique results in a set of data using a comparison operator
  */
 template<class TDATA, class TRESULT = TDATA>
-class ParallelFor {
+class Unique {
 public:
     /**
-     * Create a parallel task set using a manager and a set of tasks.
-     * @param manager Manager to run tasks against
-     * @param op Operation to run in parallel for a number of times
-     * @param nbTimes Number of times to run operation for
+     * Create a filter operation that will filter a set of data based on an operation.
+     * @param manager Manager to use with filter operation
+     * @param equalOp Operation to use to determine if two data points are equal
+     * @param data Data to be filtered
      */
-    ParallelFor(std::shared_ptr<tasks::IManager> manager, 
-        std::function<std::future<AsyncResult<TDATA>>(size_t)> op, 
-        const size_t nbTimes);
+    Unique(std::shared_ptr<tasks::IManager> manager, 
+        std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> equalOp,
+        const std::vector<std::shared_ptr<TDATA>>& data);
 
     /**
-     * Run the operation across the set of data, invoking a task with the result of the data
-     * @param onFinishTask Task to run when operation has been applied to all data
-     * @return Future indicating when all operations (including onFinishTask) are complete
+     * Run the operation across the set of data, invoking a task with the unique results
+     * @param onUnique Function to invoke when uniqueness operation is complete, receiving unique data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishTask);
-    /**
-     * Run the operation across the set of data.
-     * @return Future indicating when all operations are complete
-     */
-    std::future<AsyncResult<TRESULT>> execute();
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&) onUnique) const;
 
 private:
-    std::function<std::future<AsyncResult<TDATA>>(size_t)> mOp;
+    std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> mOp;
     std::shared_ptr<tasks::IManager> mManager;
-    size_t mNbTimes;
+    std::vector<std::shared_ptr<TDATA>> mData;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-ParallelFor<TDATA, TRESULT>::ParallelFor(std::shared_ptr<tasks::IManager> manager, 
-        std::function<std::future<AsyncResult<TDATA>>(size_t)> op, 
-        const size_t nbTimes)
-    : mManager(manager), mOp(op), mNbTimes(nbTimes)
+Unique<TDATA>::Unique(std::shared_ptr<tasks::IManager> manager, 
+                      std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> uniqueOp, 
+                      std::vector<std::shared_ptr<TDATA>> data)
+    : mManager(manager), mOp(filterOp), mData(data)
 {
-    assert(manager);
-    assert(0 < nbTimes);
-    
+
 }
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp)
+std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onFilter)
 {
-    auto terminalTask(std::make_shared<ParallelCollectTask<TDATA,TRESULT>>(mManager, mNbTimes, onFinishOp));
-
-    auto future = terminalTask->getFuture();
-
-    for(size_t idx = 0; idx < mNbTimes; ++idx)
-    {
-        auto op = std::bind(mOp, idx);
-        mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
-    }
-
-    return future;   
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute()
-{
-    return execute([](const std::vector<AsyncResult<TDATA>>&)->std::future<AsyncResult<TRESULT>> { 
-        return AsyncResult<TRESULT>().asFulfilledFuture();
-    } );
+    auto saveData = std::make_shared<std::vector<std::shared_ptr<TDATA>>>(mData);
+    auto op = [saveData, this](size_t index) -> std::future<AsyncResult<TDATA>> {
+        for(size_t i = 0; i < index; ++i)
+        {
+            if(mOp(saveData->at(i), saveData->at(index)))
+            {
+                //previous element in list matches this item, item is not the unique one
+                return AsyncResult<TDATA>().asFulfilledFuture();
+            }
+        }
+        return AsyncResult<TDATA>(saveData->at(index)).asFulfilledFuture();
+    };
+    return ParallelFor<TDATA, TDATA, void>(mManager, op, mData.size()).execute(
+        [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
+            try
+            {
+                std::vector<std::shared_ptr<TDATA>> uniqueResults;
+                uniqueResults.reserve(results.size());
+                for(auto result : results)
+                {
+                    auto value = result.throwOrGet();
+                    if(value)
+                    {
+                        uniqueResults.emplace_back(value);
+                    }
+                }
+                uniqueResults.shrink_to_fit();
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(std::make_shared<std::vector<std::shared_ptr<TDATA>>>(std::move(uniqueResults))));
+            }
+            catch(std::exception& ex)
+            {
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
+            }
+            catch(...)
+            {
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Unique: Unknown error"));
+            }
+        } );
 }
 
 }

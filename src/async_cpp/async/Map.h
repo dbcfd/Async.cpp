@@ -1,82 +1,83 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelTask.h"
+#include "async_cpp/async/ParallelForEach.h"
+
+#include <vector>
 
 namespace async_cpp {
 namespace async {
 
 /**
- * Perform an operation in parallel for a number of times, optionally calling a function to examine all results once parallel 
- * operations are complete. Each task will be passed an index as data.
+ * Filter a set of data using a criteria
  */
-template<class TDATA, class TRESULT = TDATA>
-class ParallelFor {
+template<class TIN, class TOUT, class TRESULT = TOUT>
+class Map {
 public:
     /**
-     * Create a parallel task set using a manager and a set of tasks.
-     * @param manager Manager to run tasks against
-     * @param op Operation to run in parallel for a number of times
-     * @param nbTimes Number of times to run operation for
+     * Create a filter operation that will filter a set of data based on an operation.
+     * @param manager Manager to use with filter operation
+     * @param mapOp Operation to use for filtering
+     * @param data Data to be mapped
      */
-    ParallelFor(std::shared_ptr<tasks::IManager> manager, 
-        std::function<std::future<AsyncResult<TDATA>>(size_t)> op, 
-        const size_t nbTimes);
+    Map(std::shared_ptr<tasks::IManager> manager, 
+        std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> mapOp,
+        const std::vector<std::shared_ptr<TIN>>& data);
 
     /**
-     * Run the operation across the set of data, invoking a task with the result of the data
-     * @param onFinishTask Task to run when operation has been applied to all data
-     * @return Future indicating when all operations (including onFinishTask) are complete
+     * Run the operation across the set of data, invoking a task with the filtered results
+     * @param onFilter Function to invoke when filter operation is complete, receiving filtered data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishTask);
-    /**
-     * Run the operation across the set of data.
-     * @return Future indicating when all operations are complete
-     */
-    std::future<AsyncResult<TRESULT>> execute();
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> onMap) const;
 
 private:
-    std::function<std::future<AsyncResult<TDATA>>(size_t)> mOp;
+    std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> mOp;
     std::shared_ptr<tasks::IManager> mManager;
-    size_t mNbTimes;
+    std::vector<std::shared_ptr<TIN>> mData;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelFor<TDATA, TRESULT>::ParallelFor(std::shared_ptr<tasks::IManager> manager, 
-        std::function<std::future<AsyncResult<TDATA>>(size_t)> op, 
-        const size_t nbTimes)
-    : mManager(manager), mOp(op), mNbTimes(nbTimes)
+template<class TIN, class TOUT, class TRESULT>
+Map<TIN, TOUT, TRESULT>::Map(std::shared_ptr<tasks::IManager> manager, 
+                      std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> filterOp, 
+                      const std::vector<std::shared_ptr<TIN>>& data)
+    : mManager(manager), mOp(filterOp), mData(data)
 {
-    assert(manager);
-    assert(0 < nbTimes);
-    
+
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp)
+template<class TIN, class TOUT, class TRESULT>
+std::future<AsyncResult<TRESULT>> Map<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> onFilter) const
 {
-    auto terminalTask(std::make_shared<ParallelCollectTask<TDATA,TRESULT>>(mManager, mNbTimes, onFinishOp));
-
-    auto future = terminalTask->getFuture();
-
-    for(size_t idx = 0; idx < mNbTimes; ++idx)
-    {
-        auto op = std::bind(mOp, idx);
-        mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
-    }
-
-    return future;   
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute()
-{
-    return execute([](const std::vector<AsyncResult<TDATA>>&)->std::future<AsyncResult<TRESULT>> { 
-        return AsyncResult<TRESULT>().asFulfilledFuture();
-    } );
+    auto op = [this](std::shared_ptr<TIN> value) -> std::future<AsyncResult<TOUT>> {
+        return AsyncResult<TOUT>(mOp(value)).asFulfilledFuture();
+    };
+    return ParallelForEach<TIN, TOUT, void>(mManager, op, mData).execute(
+        [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
+            try
+            {
+                std::vector<std::shared_ptr<TOUT>> mappedResults;
+                mappedResults.reserve(results.size());
+                for(auto result : results)
+                {
+                    auto value = result.throwOrGet();
+                    if(value)
+                    {
+                        mappedResults.emplace_back(value);
+                    }
+                }
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(std::make_shared<std::vector<std::shared_ptr<TOUT>>>(std::move(filteredResults))));
+            }
+            catch(std::exception& ex)
+            {
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
+            }
+            catch(...)
+            {
+                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Map: Unknown error"));
+            }
+        } );
 }
 
 }
