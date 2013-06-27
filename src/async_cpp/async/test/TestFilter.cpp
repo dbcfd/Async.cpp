@@ -37,7 +37,7 @@ TEST(FILTER_TEST, BASIC)
 
     AsyncResult<std::vector<std::shared_ptr<int>>> result;
     result = Filter<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
-        ASSERT_NO_THROW(result.throwOrGet());
+    ASSERT_NO_THROW(result.throwOrGet());
     std::shared_ptr<std::vector<std::shared_ptr<int>>> filterData;
     ASSERT_NO_THROW(filterData = result.throwOrGet());
     ASSERT_TRUE(filterData);

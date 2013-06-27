@@ -37,7 +37,7 @@ TEST(UNIQUE_TEST, BASIC)
 
     AsyncResult<std::vector<std::shared_ptr<int>>> result;
     result = Unique<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
-        ASSERT_NO_THROW(result.throwOrGet());
+    ASSERT_NO_THROW(result.throwOrGet());
     std::shared_ptr<std::vector<std::shared_ptr<int>>> uniqueData;
     ASSERT_NO_THROW(uniqueData = result.throwOrGet());
     ASSERT_TRUE(uniqueData);

@@ -32,7 +32,7 @@ TEST(MAP_TEST, BASIC)
 
     AsyncResult<std::vector<std::shared_ptr<int>>> result;
     result = Map<int, int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
-        ASSERT_NO_THROW(result.throwOrGet());
+    ASSERT_NO_THROW(result.throwOrGet());
     std::shared_ptr<std::vector<std::shared_ptr<int>>> mapData;
     ASSERT_NO_THROW(mapData = result.throwOrGet());
     ASSERT_TRUE(mapData);
