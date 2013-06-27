@@ -11,7 +11,7 @@
 using namespace async_cpp;
 using namespace async_cpp::async;
 
-TEST(UNIQUE_TEST, BASIC)
+TEST(FILTER_TEST, BASIC)
 {
     auto manager(std::make_shared<tasks::Manager>(5));
 
@@ -41,7 +41,7 @@ TEST(UNIQUE_TEST, BASIC)
     std::shared_ptr<std::vector<std::shared_ptr<int>>> filterData;
     ASSERT_NO_THROW(filterData = result.throwOrGet());
     ASSERT_TRUE(filterData);
-    ASSERT_EQ(7, filterData->size());
+    ASSERT_EQ(5, filterData->size());
     for(auto i = 0; i < filterData->size(); ++i)
     {
         EXPECT_TRUE(*(filterData->at(i)) % 2 == 0);

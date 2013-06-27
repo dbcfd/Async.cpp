@@ -32,13 +32,13 @@ TEST(ASIO_OVERLOAD_TEST, SERIES)
         [](size_t)->std::future<AsyncResult<void>> {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     return AsyncResult<void>().asFulfilledFuture();
-        }, 5).execute();
+    }, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     auto parallel25 = ParallelFor<void, void>(manager,
         [](size_t)->std::future<AsyncResult<void>> {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             return AsyncResult<void>().asFulfilledFuture();
-        }, 25).execute();
+        }, 25).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
         [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
@@ -77,7 +77,7 @@ TEST(ASIO_OVERLOAD_TEST, SERIES)
         }
     };
 
-    auto result = Series<void, void>(manager, ops, 5).execute();
+    auto result = Series<void, void>(manager, ops, 5).execute( [](const AsyncResult<void>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     ASSERT_NO_THROW(result.get().throwIfError());
 
@@ -106,13 +106,13 @@ TEST(ASIO_OVERLOAD_TEST, PARALLEL)
         [](size_t)->std::future<AsyncResult<void>> {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     return AsyncResult<void>().asFulfilledFuture();
-        }, 5).execute();
+        }, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     auto parallel25 = ParallelFor<void, void>(manager,
         [](size_t)->std::future<AsyncResult<void>> {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             return AsyncResult<void>().asFulfilledFuture();
-        }, 25).execute();
+        }, 25).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
         [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
@@ -151,7 +151,7 @@ TEST(ASIO_OVERLOAD_TEST, PARALLEL)
         }
     };
 
-    auto result = Parallel<void, void>(manager, ops, 5).execute();
+    auto result = Parallel<void, void>(manager, ops, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
 
     ASSERT_NO_THROW(result.get().throwIfError());
 

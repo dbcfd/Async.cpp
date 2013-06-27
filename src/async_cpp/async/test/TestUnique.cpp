@@ -28,7 +28,7 @@ TEST(UNIQUE_TEST, BASIC)
     data.emplace_back(std::make_shared<int>(4));
 
     auto op = [](std::shared_ptr<int> a, std::shared_ptr<int> b) -> bool {
-        return a == b;
+        return *a == *b;
     };
 
     auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {

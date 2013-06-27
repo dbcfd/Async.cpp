@@ -11,7 +11,7 @@
 using namespace async_cpp;
 using namespace async_cpp::async;
 
-TEST(UNIQUE_TEST, BASIC)
+TEST(MAP_TEST, BASIC)
 {
     auto manager(std::make_shared<tasks::Manager>(5));
 
@@ -36,7 +36,7 @@ TEST(UNIQUE_TEST, BASIC)
     std::shared_ptr<std::vector<std::shared_ptr<int>>> mapData;
     ASSERT_NO_THROW(mapData = result.throwOrGet());
     ASSERT_TRUE(mapData);
-    ASSERT_EQ(7, mapData->size());
+    ASSERT_EQ(5, mapData->size());
     std::sort(mapData->begin(), mapData->end(), [](std::shared_ptr<int> a, std::shared_ptr<int> b) -> bool {
         return *a < *b;
     } );
