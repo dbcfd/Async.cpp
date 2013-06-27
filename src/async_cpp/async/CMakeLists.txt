@@ -1,12 +1,56 @@
 set (TARGET Async)
 
-file(GLOB HEADERS "*.h")
+set(DETAIL_HEADERS
+    detail/IParallelTask.h
+    detail/ISeriesTask.h
+    detail/ParallelCollectTask.h
+    detail/ParallelTask.h
+    detail/ParallelTerminalTask.h
+    detail/SeriesCollectTask.h
+    detail/SeriesTask.h
+    detail/SeriesTerminalTask.h
+)
 
-file(GLOB SOURCES "*.cpp")
+set(DETAIL_SOURCES
+    detail/IParallelTask.cpp
+    detail/ISeriesTask.cpp
+    detail/ParallelCollectTask.cpp
+    detail/ParallelTask.cpp
+    detail/ParallelTerminalTask.cpp
+    detail/SeriesCollectTask.cpp
+    detail/SeriesTask.cpp
+    detail/SeriesTerminalTask.cpp
+)
+
+source_group("Header Files\\Detail" FILES ${DETAIL_HEADERS})
+source_group("Source Files\\Detail" FILES ${DETAIL_SOURCES})
+
+set(HEADERS
+    Async.h
+    AsyncResult.h
+    Filter.h
+    Map.h
+    Parallel.h
+    ParallelFor.h
+    ParallelForEach.h
+    Series.h
+    Unique.h
+)
+
+set(SOURCES
+    AsyncResult.cpp
+    Filter.cpp
+    Map.cpp
+    Parallel.cpp
+    ParallelFor.cpp
+    ParallelForEach.cpp
+    Series.cpp
+    Unique.cpp
+)
 
 SET (DEPENDENCIES Tasks)
 
-add_library (${TARGET} ${LIBRARY_BUILD_TYPE} ${HEADERS} ${SOURCES}) 
+add_library (${TARGET} ${LIBRARY_BUILD_TYPE} ${HEADERS} ${DETAIL_HEADERS} ${SOURCES} ${DETAIL_SOURCES}) 
 target_link_libraries (${TARGET} ${DEPENDENCIES})
 
 set_target_properties (${TARGET} PROPERTIES

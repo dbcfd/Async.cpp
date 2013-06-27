@@ -24,10 +24,10 @@ public:
         const std::vector<std::shared_ptr<TIN>>& data);
 
     /**
-     * Run the operation across the set of data, invoking a task with the filtered results
-     * @param onFilter Function to invoke when filter operation is complete, receiving filtered data
+     * Run the operation across the set of data, invoking a task with the mapped results
+     * @param afterMap Function to invoke when map operation is complete, receiving mapped data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> onMap) const;
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> afterMap) const;
 
 private:
     std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> mOp;
@@ -48,13 +48,13 @@ Map<TIN, TOUT, TRESULT>::Map(std::shared_ptr<tasks::IManager> manager,
 
 //------------------------------------------------------------------------------
 template<class TIN, class TOUT, class TRESULT>
-std::future<AsyncResult<TRESULT>> Map<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> onFilter) const
+std::future<AsyncResult<TRESULT>> Map<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> afterMap) const
 {
     auto op = [this](std::shared_ptr<TIN> value) -> std::future<AsyncResult<TOUT>> {
         return AsyncResult<TOUT>(mOp(value)).asFulfilledFuture();
     };
-    return ParallelForEach<TIN, TOUT, void>(mManager, op, mData).execute(
-        [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
+    return ParallelForEach<TIN, TOUT, TRESULT>(mManager, op, mData).execute(
+        [afterMap](const std::vector<AsyncResult<TOUT>>& results)->std::future<AsyncResult<TRESULT>> {
             try
             {
                 std::vector<std::shared_ptr<TOUT>> mappedResults;
@@ -67,15 +67,15 @@ std::future<AsyncResult<TRESULT>> Map<TIN, TOUT, TRESULT>::execute(std::function
                         mappedResults.emplace_back(value);
                     }
                 }
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(std::make_shared<std::vector<std::shared_ptr<TOUT>>>(std::move(filteredResults))));
+                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(std::make_shared<std::vector<std::shared_ptr<TOUT>>>(std::move(mappedResults))));
             }
             catch(std::exception& ex)
             {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
+                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(ex.what()));
             }
             catch(...)
             {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Map: Unknown error"));
+                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>("Map: Unknown error"));
             }
         } );
 }

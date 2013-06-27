@@ -1,6 +1,6 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelForEach.h"
+#include "async_cpp/async/ParallelFor.h"
 
 #include <vector>
 
@@ -27,7 +27,7 @@ public:
      * Run the operation across the set of data, invoking a task with the unique results
      * @param onUnique Function to invoke when uniqueness operation is complete, receiving unique data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&) onUnique) const;
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onUnique) const;
 
 private:
     std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> mOp;
@@ -38,17 +38,17 @@ private:
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-Unique<TDATA>::Unique(std::shared_ptr<tasks::IManager> manager, 
+Unique<TDATA, TRESULT>::Unique(std::shared_ptr<tasks::IManager> manager, 
                       std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> uniqueOp, 
-                      std::vector<std::shared_ptr<TDATA>> data)
-    : mManager(manager), mOp(filterOp), mData(data)
+                      const std::vector<std::shared_ptr<TDATA>>& data)
+    : mManager(manager), mOp(uniqueOp), mData(data)
 {
 
 }
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onFilter)
+std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onUnique) const
 {
     auto saveData = std::make_shared<std::vector<std::shared_ptr<TDATA>>>(mData);
     auto op = [saveData, this](size_t index) -> std::future<AsyncResult<TDATA>> {
@@ -62,8 +62,8 @@ std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<
         }
         return AsyncResult<TDATA>(saveData->at(index)).asFulfilledFuture();
     };
-    return ParallelFor<TDATA, TDATA, void>(mManager, op, mData.size()).execute(
-        [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
+    return ParallelFor<TDATA, TRESULT>(mManager, op, mData.size()).execute(
+        [onUnique](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
             try
             {
                 std::vector<std::shared_ptr<TDATA>> uniqueResults;
@@ -77,15 +77,15 @@ std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<
                     }
                 }
                 uniqueResults.shrink_to_fit();
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(std::make_shared<std::vector<std::shared_ptr<TDATA>>>(std::move(uniqueResults))));
+                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(std::make_shared<std::vector<std::shared_ptr<TDATA>>>(std::move(uniqueResults))));
             }
             catch(std::exception& ex)
             {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
+                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
             }
             catch(...)
             {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Unique: Unknown error"));
+                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Unique: Unknown error"));
             }
         } );
 }

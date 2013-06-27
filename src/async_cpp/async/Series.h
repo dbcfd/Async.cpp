@@ -70,14 +70,14 @@ Series<TDATA, TRESULT>::Series(std::shared_ptr<tasks::IManager> manager,
 template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> onFinishOp) const
 {
-    auto finishTask(std::make_shared<SeriesCollectTask<TDATA, TRESULT>>(mManager, onFinishOp));
+    auto finishTask(std::make_shared<detail::SeriesCollectTask<TDATA, TRESULT>>(mManager, onFinishOp));
 
     auto result = finishTask->getFuture();
 
-    std::shared_ptr<ISeriesTask<TDATA>> nextTask = finishTask;
+    std::shared_ptr<detail::ISeriesTask<TDATA>> nextTask = finishTask;
     for(auto iter = mOperations.rbegin(); iter != mOperations.rend(); ++iter)
     {
-        nextTask = std::make_shared<SeriesTask<TDATA>>(mManager, (*iter), nextTask);
+        nextTask = std::make_shared<detail::SeriesTask<TDATA>>(mManager, (*iter), nextTask);
     }
 
     nextTask->forwardFuture(AsyncResult<TDATA>().asFulfilledFuture());

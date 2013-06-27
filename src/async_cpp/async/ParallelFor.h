@@ -55,14 +55,14 @@ ParallelFor<TDATA, TRESULT>::ParallelFor(std::shared_ptr<tasks::IManager> manage
 template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> ParallelFor<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp) const
 {
-    auto terminalTask(std::make_shared<ParallelCollectTask<TDATA,TRESULT>>(mManager, mNbTimes, onFinishOp));
+    auto terminalTask(std::make_shared<detail::ParallelCollectTask<TDATA,TRESULT>>(mManager, mNbTimes, onFinishOp));
 
     auto future = terminalTask->getFuture();
 
     for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
         auto op = std::bind(mOp, idx);
-        mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
+        mManager->run(std::make_shared<detail::ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
     }
 
     return future;   

@@ -66,13 +66,13 @@ Parallel<TDATA, TRESULT>::Parallel(std::shared_ptr<tasks::IManager> manager, std
 template<class TDATA, class TRESULT>
 std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp) const
 {
-    auto terminalTask(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(mManager, mOps.size(), onFinishOp));
+    auto terminalTask(std::make_shared<detail::ParallelCollectTask<TDATA, TRESULT>>(mManager, mOps.size(), onFinishOp));
 
     auto future = terminalTask->getFuture();
 
     for(auto op : mOps)
     {
-        mManager->run(std::make_shared<ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
+        mManager->run(std::make_shared<detail::ParallelTask<TDATA, TRESULT>>(mManager, op, terminalTask));
     }
 
     return future; 

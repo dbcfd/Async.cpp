@@ -60,7 +60,7 @@ std::future<AsyncResult<TRESULT>> Filter<TDATA, TRESULT>::execute(std::function<
             return AsyncResult<TDATA>().asFulfilledFuture();
         }
     };
-    return ParallelForEach<TDATA, TDATA, void>(mManager, op, mData).execute(
+    return ParallelForEach<TDATA, TDATA, TRESULT>(mManager, op, mData).execute(
         [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
             try
             {

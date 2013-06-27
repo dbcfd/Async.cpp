@@ -51,13 +51,13 @@ ParallelForEach<TIN, TOUT, TRESULT>::ParallelForEach(std::shared_ptr<tasks::IMan
 template<class TIN, class TOUT, class TRESULT>
 std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TOUT>>&)> onFinishOp) const
 {
-    auto terminalTask(std::make_shared<ParallelCollectTask<TOUT, TRESULT>>(mManager, mData.size(), onFinishOp));
+    auto terminalTask(std::make_shared<detail::ParallelCollectTask<TOUT, TRESULT>>(mManager, mData.size(), onFinishOp));
 
     auto future = terminalTask->getFuture();
 
     for(auto data : mData)
     {
-        mManager->run(std::make_shared<ParallelTask<TOUT, TRESULT>>(mManager, std::bind(mOp, data), terminalTask));
+        mManager->run(std::make_shared<detail::ParallelTask<TOUT, TRESULT>>(mManager, std::bind(mOp, data), terminalTask));
     }
 
     return future;
