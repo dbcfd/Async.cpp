@@ -3,6 +3,7 @@
 #include "async_cpp/tasks/Task.h"
 
 #include <boost/asio.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <assert.h>
 
@@ -10,28 +11,30 @@ namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
-class AsioManager::WorkWrapper {
+class AsioManager::WorkWrapper : boost::asio::io_service::work {
 public:
-    WorkWrapper(boost::asio::io_service& service) : mWork(service)
+    WorkWrapper(boost::asio::io_service& service) : boost::asio::io_service::work(service)
     {
 
     }
-
-private:
-    boost::asio::io_service::work mWork;
 };
 
 //------------------------------------------------------------------------------
-AsioManager::AsioManager(const size_t nbThreads)
-    : IManager(), mService(std::make_shared<boost::asio::io_service>())
+AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io_service> service)
+    : IManager(), mService(service), mNbThreads(nbThreads)
 {
+    if(!mService)
+    {
+        mService = std::make_shared<boost::asio::io_service>();
+    }
     mRunning.store(true);
     mTasksOutstanding.store(0);
     mWork = std::unique_ptr<WorkWrapper>(new WorkWrapper(*mService));
+    mThreads = std::unique_ptr<boost::thread_group>(new boost::thread_group());
     
     for(size_t i = 0; i < nbThreads; ++i)
     {
-        mThreads.emplace_back([this]()->void {
+        mThreads->create_thread([this]()->void {
             mService->run();
         });
     }
@@ -44,7 +47,7 @@ AsioManager::~AsioManager()
     std::mutex mutex;
     std::unique_lock<std::mutex> lock(mutex);
     mShutdownSignal.wait(lock, [this]()->bool {
-        return mThreads.empty();
+        return (nullptr == mThreads);
     } );
 }
 
@@ -60,20 +63,15 @@ void AsioManager::shutdown()
                 return (0 == mTasksOutstanding.load());
             } );
         }
+        mService->stop();
+        mThreads->interrupt_all();
         while(!mTasksPending.empty())
         {
             mTasksPending.front()->failToPerform();
             mTasksPending.pop();
         }
-        mService->stop();
-        for(auto& thread : mThreads)
-        {
-            if(thread.joinable())
-            {
-                thread.join();
-            }
-        }
-        mThreads.clear();
+        mThreads->join_all();
+        mThreads.reset();
         mShutdownSignal.notify_all();
     }
 }

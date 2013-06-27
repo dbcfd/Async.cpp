@@ -8,7 +8,7 @@ include(SetBuildProperties)
 #project variables
 project(Async CXX C)
 
-set(version 0.11.2)
+set(version 0.12.0)
 
 set(PROJECT_SO_VERSION ${version})
 
@@ -47,7 +47,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 set(Boost_USE_STATIC_RUNTIME    ${USE_STATIC_RUNTIME})
 
-find_package(Boost 1.53.0 COMPONENTS regex system date_time)
+find_package(Boost 1.53.0 COMPONENTS chrono date_time regex system thread)
 
 if(BUILD_TESTS)
 	enable_testing()

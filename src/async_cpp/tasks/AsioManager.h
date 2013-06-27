@@ -13,6 +13,7 @@ namespace boost {
 namespace asio {
 class io_service;
 }
+class thread_group;
 }
 
 namespace async_cpp {
@@ -25,10 +26,10 @@ class ASYNC_CPP_TASKS_API AsioManager : public IManager {
 public:
     /**
      * Create a manager with a set number of threads, which will run tasks as they become available.
-     * @param ioService Shared pointer to boost::asio::io_service to use for thread management
      * @param nbThreads Threads to use with service
+     * @param ioService Shared pointer to boost::asio::io_service to use for thread management
      */
-    AsioManager(const size_t nbThreads);
+    AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io_service> service = std::shared_ptr<boost::asio::io_service>());
     ~AsioManager();
 
     /**
@@ -75,8 +76,9 @@ protected:
     std::queue<std::shared_ptr<Task>> mTasksPending;
     std::shared_ptr<boost::asio::io_service> mService;
     std::unique_ptr<WorkWrapper> mWork;
-    std::vector<std::thread> mThreads;
+    std::unique_ptr<boost::thread_group> mThreads;
     std::condition_variable mShutdownSignal;
+    size_t mNbThreads;
 };
 
 //inline implementations
@@ -95,7 +97,7 @@ std::shared_ptr<boost::asio::io_service> AsioManager::getService()
 //------------------------------------------------------------------------------
 size_t AsioManager::idealNumberOfSimultaneousTasks() const
 {
-    return mThreads.size();
+    return mNbThreads;
 }
 
 }
