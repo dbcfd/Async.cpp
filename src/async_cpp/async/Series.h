@@ -1,7 +1,7 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/SeriesCollectTask.h"
-#include "async_cpp/async/SeriesTask.h"
+#include "async_cpp/async/detail/SeriesCollectTask.h"
+#include "async_cpp/async/detail/SeriesTask.h"
 
 #include <functional>
 
@@ -36,13 +36,7 @@ public:
      * @param onFinishTask Task to run when series tasks are complete
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> onFinishTask);
-
-    /**
-     * Run the set of tasks in series
-     * @return Future indicating when all operations are complete
-     */
-    std::future<AsyncResult<TRESULT>> execute();
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> onFinishTask) const;
 
 private:
     std::vector<std::function<std::future<AsyncResult<TDATA>>(const AsyncResult<TDATA>&)>> mOperations;
@@ -74,7 +68,7 @@ Series<TDATA, TRESULT>::Series(std::shared_ptr<tasks::IManager> manager,
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> onFinishOp)
+std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<TDATA>&)> onFinishOp) const
 {
     auto finishTask(std::make_shared<SeriesCollectTask<TDATA, TRESULT>>(mManager, onFinishOp));
 
@@ -90,15 +84,6 @@ std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute(std::function<
     mManager->run(nextTask);
 
     return result;  
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Series<TDATA, TRESULT>::execute()
-{
-    return execute([](const AsyncResult<TDATA>&)->std::future<AsyncResult<TRESULT>> { 
-        return AsyncResult<TRESULT>().asFulfilledFuture();
-    });
 }
 
 }

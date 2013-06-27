@@ -1,6 +1,7 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelTask.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/detail/ParallelTask.h"
 
 namespace async_cpp {
 namespace async {
@@ -25,12 +26,7 @@ public:
      * @param onFinishTask Task to run when operation has been applied to all data
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TOUT>>&)> onFinishTask);
-    /**
-     * Run the operation across the set of data.
-     * @return Future indicating when all operations are complete
-     */
-    std::future<AsyncResult<TRESULT>> execute();
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TOUT>>&)> onFinishTask) const;
 
 private:
     std::function<std::future<AsyncResult<TOUT>>(std::shared_ptr<TIN>)> mOp;
@@ -53,7 +49,7 @@ ParallelForEach<TIN, TOUT, TRESULT>::ParallelForEach(std::shared_ptr<tasks::IMan
 
 //------------------------------------------------------------------------------
 template<class TIN, class TOUT, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TOUT>>&)> onFinishOp)
+std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TOUT>>&)> onFinishOp) const
 {
     auto terminalTask(std::make_shared<ParallelCollectTask<TOUT, TRESULT>>(mManager, mData.size(), onFinishOp));
 
@@ -65,15 +61,6 @@ std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute(s
     }
 
     return future;
-}
-
-//------------------------------------------------------------------------------
-template<class TIN, class TOUT, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelForEach<TIN, TOUT, TRESULT>::execute()
-{
-    return execute([](const std::vector<AsyncResult<TOUT>>&)->std::future<AsyncResult<TOUT>> { 
-        return AsyncResult<TRESULT>().asFulfilledFuture();
-    });
 }
 
 }

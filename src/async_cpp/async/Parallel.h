@@ -1,6 +1,7 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelTask.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/detail/ParallelTask.h"
 
 namespace async_cpp {
 namespace async {
@@ -31,13 +32,7 @@ public:
      * @param onFinishTask Task to run when parallel tasks are complete
      * @return Future indicating when all operations (including onFinishTask) are complete
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishTask);
-
-    /**
-     * Run the set of tasks in parallel
-     * @return Future indicating when all operations are complete
-     */
-    std::future<AsyncResult<TRESULT>> execute();
+    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishTask) const;
 
 private:
     std::vector<std::function<std::future<AsyncResult<TDATA>>(void)>> mOps;
@@ -69,7 +64,7 @@ Parallel<TDATA, TRESULT>::Parallel(std::shared_ptr<tasks::IManager> manager, std
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp)
+std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> onFinishOp) const
 {
     auto terminalTask(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(mManager, mOps.size(), onFinishOp));
 
@@ -82,16 +77,6 @@ std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute(std::functio
 
     return future; 
 }
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Parallel<TDATA, TRESULT>::execute()
-{
-    return execute([](const std::vector<AsyncResult<TDATA>>&)->std::future<AsyncResult<TRESULT>> { 
-        return AsyncResult<TRESULT>().asFulfilledFuture();
-    } ); 
-}
-
 
 }
 }
