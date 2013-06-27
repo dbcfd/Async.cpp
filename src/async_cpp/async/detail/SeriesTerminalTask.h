@@ -1,9 +1,10 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ISeriesTask.h"
+#include "async_cpp/async/detail/ISeriesTask.h"
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 //------------------------------------------------------------------------------
 template<class TDATA>
@@ -115,5 +116,6 @@ void SeriesTerminalTask<TDATA>::notifyFailureToPerform()
     mTask(std::move(AsyncResult<TDATA>("SeriesTerminalTask: Failed to perform")));
 }
 
+}
 }
 }

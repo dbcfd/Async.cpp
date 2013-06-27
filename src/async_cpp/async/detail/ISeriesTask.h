@@ -6,6 +6,7 @@
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 template<class TDATA>
 class ISeriesTask : public tasks::Task {
@@ -56,5 +57,6 @@ void ISeriesTask<TDATA>::forwardFuture(std::future<AsyncResult<TDATA>>&& forward
     mForwardedFuture = std::move(forwardedFuture);
 }
 
+}
 }
 }

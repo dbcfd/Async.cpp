@@ -1,12 +1,13 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelTerminalTask.h"
+#include "async_cpp/async/detail/ParallelTerminalTask.h"
 
 #include <functional>
 #include <vector>
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 /**
  * Task which collects a set of futures from parallel tasks.
@@ -153,5 +154,6 @@ std::future<AsyncResult<TRESULT>> ParallelCollectTask<TDATA, TRESULT>::getFuture
     return mTerminalTask->getFuture();
 }
 
+}
 }
 }

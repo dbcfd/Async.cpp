@@ -1,9 +1,10 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ISeriesTask.h"
+#include "async_cpp/async/detail/ISeriesTask.h"
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 /**
  * Task which continues a chain of asynchronous tasks.
@@ -120,5 +121,6 @@ void SeriesTask<TDATA>::notifyFailureToPerform()
     mNextTask->failToPerform();
 }
 
+}
 }
 }

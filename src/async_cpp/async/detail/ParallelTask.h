@@ -1,12 +1,13 @@
 #pragma once
 #include "async_cpp/async/Async.h"
-#include "async_cpp/async/ParallelCollectTask.h"
+#include "async_cpp/async/detail/ParallelCollectTask.h"
 
 #include <functional>
 #include <vector>
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 /**
  * Parallel running task
@@ -88,5 +89,6 @@ void ParallelTask<TDATA, TRESULT>::notifyFailureToPerform()
     }
 }
 
+}
 }
 }

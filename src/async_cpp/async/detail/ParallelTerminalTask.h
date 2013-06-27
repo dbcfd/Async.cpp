@@ -1,7 +1,7 @@
 #pragma once
 #include "async_cpp/async/Async.h"
 #include "async_cpp/async/AsyncResult.h"
-#include "async_cpp/async/IParallelTask.h"
+#include "async_cpp/async/detail/IParallelTask.h"
 
 #include "async_cpp/tasks/IManager.h"
 
@@ -10,6 +10,7 @@
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 /**
  * Task which collects a set of futures from parallel tasks.
@@ -113,5 +114,6 @@ void ParallelTerminalTask<TDATA>::forwardResult(std::future<AsyncResult<TDATA>>&
     mGeneratedFuture = std::move(futureResult);
 }
 
+}
 }
 }

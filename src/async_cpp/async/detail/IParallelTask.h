@@ -5,11 +5,12 @@
 
 namespace async_cpp {
 namespace async {
+namespace detail {
 
 /**
  * Common interface for parallel tasks
  */
-class ASYNC_CPP_ASYNC_API IParallelTask : public tasks::Task {
+class IParallelTask : public tasks::Task {
 public:
     IParallelTask(std::weak_ptr<tasks::IManager> mgr);
     virtual ~IParallelTask();
@@ -23,5 +24,6 @@ protected:
 //inline implementations
 //------------------------------------------------------------------------------
 
+}
 }
 }
