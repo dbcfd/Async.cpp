@@ -44,7 +44,7 @@ template<class TDATA, class TRESULT>
 SeriesCollectTask<TDATA, TRESULT>::SeriesCollectTask(SeriesCollectTask&& other)
                                      : ISeriesTask<TDATA>(std::move(other)), 
                                      mGenerateResultFunc(std::move(other.mGenerateResultFunc)),
-                                     mTerminalTask(std::move(mTerminalTask))
+                                     mTerminalTask(std::move(other.mTerminalTask))
 {
 
 }
