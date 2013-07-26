@@ -1,7 +1,7 @@
 #include "async_cpp/async/AsyncResult.h"
 #include "async_cpp/async/Filter.h"
 
-#include "async_cpp/tasks/Manager.h"
+#include "async_cpp/tasks/AsioManager.h"
 
 #include <chrono>
 
@@ -13,39 +13,52 @@ using namespace async_cpp::async;
 
 TEST(FILTER_TEST, BASIC)
 {
-    auto manager(std::make_shared<tasks::Manager>(5));
+    auto manager(std::make_shared<tasks::AsioManager>(5));
 
-    std::vector<std::shared_ptr<int>> data;
-    data.emplace_back(std::make_shared<int>(1));
-    data.emplace_back(std::make_shared<int>(2));
-    data.emplace_back(std::make_shared<int>(3));
-    data.emplace_back(std::make_shared<int>(3));
-    data.emplace_back(std::make_shared<int>(4));
-    data.emplace_back(std::make_shared<int>(5));
-    data.emplace_back(std::make_shared<int>(6));
-    data.emplace_back(std::make_shared<int>(2));
-    data.emplace_back(std::make_shared<int>(7));
-    data.emplace_back(std::make_shared<int>(4));
+    std::vector<int> data;
+    data.emplace_back(1);
+    data.emplace_back(2);
+    data.emplace_back(3);
+    data.emplace_back(3);
+    data.emplace_back(4);
+    data.emplace_back(5);
+    data.emplace_back(6);
+    data.emplace_back(2);
+    data.emplace_back(7);
+    data.emplace_back(4);
 
-    auto op = [](std::shared_ptr<int> a) -> bool {
-        return *a % 2 == 0;
+    auto op = [](const int& a) -> bool {
+        return a % 2 == 0;
     };
 
-    auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {
-        return result.asFulfilledFuture();
+    auto finishOp = [](OpResult<std::vector<int>>&& result, Filter<int>::callback_t cb) -> void {
+        if(result.wasError())
+        {
+            cb(AsyncResult(result.error()));
+        }
+        else
+        {
+            bool filterCorrect = true;
+            auto results = result.move();
+            for(auto val : results)
+            {
+                filterCorrect = filterCorrect && ( val % 2 == 0);
+            }
+            if(filterCorrect && results.size() == 5)
+            {
+                cb(AsyncResult());
+            }
+            else
+            {
+                cb(AsyncResult(std::string("Filter incorrect")));
+            }
+        }
     };
 
-    AsyncResult<std::vector<std::shared_ptr<int>>> result;
-    result = Filter<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
-    ASSERT_NO_THROW(result.throwOrGet());
-    std::shared_ptr<std::vector<std::shared_ptr<int>>> filterData;
-    ASSERT_NO_THROW(filterData = result.throwOrGet());
-    ASSERT_TRUE(filterData);
-    ASSERT_EQ(5, filterData->size());
-    for(auto i = 0; i < filterData->size(); ++i)
-    {
-        EXPECT_TRUE(*(filterData->at(i)) % 2 == 0);
-    }
+    AsyncResult result;
+    result = Filter<int>(manager, op, std::move(data)).then(finishOp).get();
+    EXPECT_TRUE(result.wasSuccessful());
+    
 
     manager->shutdown();
 }

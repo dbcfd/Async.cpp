@@ -1,7 +1,7 @@
 #include "async_cpp/async/AsyncResult.h"
 #include "async_cpp/async/ParallelForEach.h"
 
-#include "async_cpp/tasks/Manager.h"
+#include "async_cpp/tasks/AsioManager.h"
 
 #include <chrono>
 
@@ -13,42 +13,49 @@ using namespace async_cpp::async;
 
 TEST(PARALLEL_FOREACH_TEST, BASIC)
 {
-    typedef std::chrono::high_resolution_clock::duration result_t;
-    auto manager(std::make_shared<tasks::Manager>(5));
+    typedef std::chrono::high_resolution_clock::time_point result_t;
+    auto manager(std::make_shared<tasks::AsioManager>(5));
     std::vector<std::shared_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](std::shared_ptr<size_t> index)->std::future<AsyncResult<size_t>> {
-        times[*index] = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now());
-        return AsyncResult<size_t>(index).asFulfilledFuture();
+    auto func = [&times](size_t& index, ParallelForEach<size_t, result_t>::callback_t cb)->void {
+        auto now = std::chrono::high_resolution_clock::now();
+        times[index] = std::make_shared<std::chrono::high_resolution_clock::time_point>(now);
+        cb(OpResult<result_t>(std::move(now)));
     };
 
-    std::vector<std::shared_ptr<size_t>> data;
-    data.emplace_back(std::make_shared<size_t>(0));
-    data.emplace_back(std::make_shared<size_t>(1));
-    data.emplace_back(std::make_shared<size_t>(2));
-    data.emplace_back(std::make_shared<size_t>(3));
-    data.emplace_back(std::make_shared<size_t>(4));
+    std::vector<size_t> data;
+    data.emplace_back(0);
+    data.emplace_back(1);
+    data.emplace_back(2);
+    data.emplace_back(3);
+    data.emplace_back(4);
 
-    ParallelForEach<size_t, size_t, result_t> parallel(manager, func, data);
+    ParallelForEach<size_t, result_t> parallel(manager, func, std::move(data));
+    auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.execute([&times](const std::vector<AsyncResult<size_t>>& results)->std::future<AsyncResult<result_t>> {
-        auto maxDur = std::chrono::high_resolution_clock::duration::min();
-        for(auto& result : results)
+    auto future = parallel.then([&times, &maxDur](OpResult<std::vector<result_t>>&& result, ParallelForEach<size_t, result_t>::complete_t cb)->void {
+        if(result.wasError())
         {
-            auto dur = std::chrono::high_resolution_clock::now() - *(times[*(result.throwOrGet())]);
-            maxDur = std::max(maxDur, dur);
+            cb(AsyncResult(result.error()));
         }
-        return AsyncResult<result_t>(std::make_shared<result_t>(maxDur)).asFulfilledFuture();
+        else
+        {
+            auto results = result.move();
+            for(auto& tp : results)
+            {
+                auto dur = std::chrono::high_resolution_clock::now() - tp;
+                maxDur = std::max(maxDur, dur);
+            }
+            cb(AsyncResult());
+        }
     } );
 
-    AsyncResult<result_t> asyncResult;
+    AsyncResult asyncResult;
     ASSERT_NO_THROW(asyncResult = future.get());
     auto totalDur = std::chrono::high_resolution_clock::now() - start;
+    EXPECT_TRUE(asyncResult.wasSuccessful());
 
-    std::shared_ptr<result_t> result;
-    ASSERT_NO_THROW(result = asyncResult.throwOrGet());
-    ASSERT_TRUE(result);
-    ASSERT_GE(totalDur, *result);
+    ASSERT_GE(totalDur, maxDur);
 
     manager->shutdown();
 }

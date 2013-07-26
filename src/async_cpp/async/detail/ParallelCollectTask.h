@@ -1,157 +1,132 @@
 #pragma once
-#include "async_cpp/async/Async.h"
-#include "async_cpp/async/detail/ParallelTerminalTask.h"
+#include "async_cpp/async/detail/IParallelTask.h"
+#include "async_cpp/async/AsyncResult.h"
+#include "async_cpp/async/OpResult.h"
 
 #include <functional>
+#include <future>
+#include <map>
 #include <vector>
 
-namespace async_cpp {
-namespace async {
-namespace detail {
+namespace async_cpp
+{
+namespace async
+{
+namespace detail
+{
 
 /**
  * Task which collects a set of futures from parallel tasks.
  */
-template<class TDATA, class TRESULT = TDATA>
-class ParallelCollectTask : public IParallelTask {
+template<class TDATA>
+class ParallelCollectTask : public IParallelTask
+{
 public:
+    typedef typename std::vector<OpResult<TDATA>> result_set_t;
+    typedef typename std::function < void(AsyncResult&&) > callback_t;
+    typedef typename std::function < void(OpResult<result_set_t>&&, typename callback_t ) > then_t;
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     ParallelCollectTask(std::weak_ptr<tasks::IManager> mgr,
-        const size_t tasksOutstanding, 
-        std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult);
-    ParallelCollectTask(ParallelCollectTask&& other);
+                        const size_t tasksOutstanding,
+                        typename then_t thenFunction);
     virtual ~ParallelCollectTask();
 
-    size_t notifyTaskCompletion(std::future<AsyncResult<TDATA>>&& futureResult);
-    std::future<AsyncResult<TRESULT>> getFuture();
+    std::future<AsyncResult> future();
+    void notifyCompletion(const size_t taskOrder, OpResult<TDATA>&& result);
 protected:
     virtual void performSpecific() final;
-    virtual void notifyFailureToPerform() final;
+    virtual void notifyCancel() final;
+    virtual void notifyException(const std::exception& ex);
 
 private:
-    std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> mGenerateResultFunc;
-    std::mutex mTasksMutex;
+    typename then_t mThenFunction;
     size_t mTasksOutstanding;
-    std::vector<std::future<AsyncResult<TDATA>>> mTaskFutures;
-    std::vector<AsyncResult<TDATA>> mTaskResults;
-    std::shared_ptr<ParallelTerminalTask<TRESULT>> mTerminalTask;
+    std::mutex mResultsMutex;
+    std::map<size_t, OpResult<TDATA>> mResults;
+    std::promise<AsyncResult> mPromise;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(std::weak_ptr<tasks::IManager> mgr,
-                                           const size_t tasksOutstanding, 
-                                           std::function<std::future<AsyncResult<TRESULT>>(const std::vector<AsyncResult<TDATA>>&)> generateResult)
-                                           : IParallelTask(mgr), 
-                                           mTasksOutstanding(tasksOutstanding), 
-                                           mGenerateResultFunc(generateResult), 
-                                           mTerminalTask(std::make_shared<ParallelTerminalTask<TRESULT>>(mgr))
-{
-    
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelCollectTask<TDATA, TRESULT>::ParallelCollectTask(ParallelCollectTask&& other)
-                                           : IParallelTask(other.mManager),
-                                           mGenerateResultFunc(std::move(other.mGenerateResultFunc)), 
-                                           mTerminalTask(std::move(other.mTerminalTask)), 
-                                           mTaskResults(std::move(other.mTaskResults)), 
-                                           mTaskFutures(std::move(other.mTaskFutures))
-{
-    
-    
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelCollectTask<TDATA, TRESULT>::~ParallelCollectTask()
+template<class TDATA>
+ParallelCollectTask<TDATA>::ParallelCollectTask(std::weak_ptr<tasks::IManager> mgr,
+        const size_t tasksOutstanding,
+        typename then_t thenFunction)
+    : IParallelTask(mgr),
+      mTasksOutstanding(tasksOutstanding),
+      mThenFunction(thenFunction)
 {
 
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelCollectTask<TDATA, TRESULT>::performSpecific()
+template<class TDATA>
+ParallelCollectTask<TDATA>::~ParallelCollectTask()
 {
-    if(mTaskFutures.empty())
+
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void ParallelCollectTask<TDATA>::performSpecific()
+{
+    result_set_t results;
+    results.reserve(mResults.size());
+
+    auto callback = [this](AsyncResult&& result)->void
     {
-        try {
-            mTerminalTask->forwardResult(mGenerateResultFunc(mTaskResults));
-        }
-        catch(std::exception& ex)
+        mPromise.set_value(std::move(result));
+    };
+
+    for(auto & kv : mResults)
+    {
+        auto& result = kv.second;
+        if(result.wasError())
         {
-            mTerminalTask->forwardResult(AsyncResult<TRESULT>(ex.what()).asFulfilledFuture());
+            mThenFunction(OpResult<result_set_t>(result.error()), callback);
+            return;
         }
-        catch(...)
-        {
-            mTerminalTask->forwardResult(AsyncResult<TRESULT>("Parallel(For/Eeach): Unknown exception, please verify parallel tasks or use std::exception").asFulfilledFuture());
-        }
-        if(auto mgr = mManager.lock())
-        {
-            mgr->run(mTerminalTask);
-        }
-        else
-        {
-            mTerminalTask->failToPerform();
-        }
+        results.push_back(OpResult<TDATA>(result.move()));
     }
-    else
+
+    mResults.clear();
+    mThenFunction(OpResult<result_set_t>(std::move(results)), callback);
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void ParallelCollectTask<TDATA>::notifyCancel()
+{
+    mPromise.set_value(AsyncResult(std::string("Cancelled")));
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void ParallelCollectTask<TDATA>::notifyException(const std::exception& ex)
+{
+    mPromise.set_value(AsyncResult(ex.what()));
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+std::future<AsyncResult> ParallelCollectTask<TDATA>::future()
+{
+    return mPromise.get_future();
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void ParallelCollectTask<TDATA>::notifyCompletion(const size_t taskIndex, OpResult<TDATA>&& result)
+{
+    std::lock_guard<std::mutex> lock(mResultsMutex);
+    mResults.emplace(taskIndex, std::move(result));
+    if(mResults.size() == mTasksOutstanding)
     {
-        std::vector<std::future<AsyncResult<TDATA>>> futuresOutstanding;
-        for(auto& future : mTaskFutures)
-        {
-#ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specific _Is_ready
-            if(future._Is_ready())
-#else
-            if(std::future_status::ready == future.wait_for(std::chrono::milliseconds(0)))
-#endif
-            {
-                mTaskResults.emplace_back(future.get());
-            }
-            else
-            {
-                futuresOutstanding.emplace_back(std::move(future));
-            }
-        }
-        mTaskFutures.swap(futuresOutstanding);
-        if(auto mgr = mManager.lock())
-        {
-            mgr->run(std::make_shared<ParallelCollectTask<TDATA, TRESULT>>(std::move(*this)));
-        }
-        else
-        {
-            notifyFailureToPerform();
-        }
-    }   
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelCollectTask<TDATA, TRESULT>::notifyFailureToPerform()
-{
-    mTerminalTask->failToPerform();
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-size_t ParallelCollectTask<TDATA, TRESULT>::notifyTaskCompletion(std::future<AsyncResult<TDATA>>&& futureResult)
-{
-    std::unique_lock<std::mutex> lock(mTasksMutex);
-    mTaskFutures.emplace_back(std::move(futureResult));
-    --mTasksOutstanding;
-    return mTasksOutstanding;
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> ParallelCollectTask<TDATA, TRESULT>::getFuture()
-{
-    return mTerminalTask->getFuture();
+        mManager.lock()->run(shared_from_this());
+    }
 }
 
 }

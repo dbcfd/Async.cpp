@@ -1,7 +1,7 @@
 #include "async_cpp/async/AsyncResult.h"
 #include "async_cpp/async/Unique.h"
 
-#include "async_cpp/tasks/Manager.h"
+#include "async_cpp/tasks/AsioManager.h"
 
 #include <chrono>
 
@@ -13,42 +13,52 @@ using namespace async_cpp::async;
 
 TEST(UNIQUE_TEST, BASIC)
 {
-    auto manager(std::make_shared<tasks::Manager>(5));
+    auto manager(std::make_shared<tasks::AsioManager>(5));
 
-    std::vector<std::shared_ptr<int>> data;
-    data.emplace_back(std::make_shared<int>(1));
-    data.emplace_back(std::make_shared<int>(2));
-    data.emplace_back(std::make_shared<int>(3));
-    data.emplace_back(std::make_shared<int>(3));
-    data.emplace_back(std::make_shared<int>(4));
-    data.emplace_back(std::make_shared<int>(5));
-    data.emplace_back(std::make_shared<int>(6));
-    data.emplace_back(std::make_shared<int>(2));
-    data.emplace_back(std::make_shared<int>(7));
-    data.emplace_back(std::make_shared<int>(4));
+    std::vector<int> data;
+    data.emplace_back(1);
+    data.emplace_back(2);
+    data.emplace_back(3);
+    data.emplace_back(3);
+    data.emplace_back(4);
+    data.emplace_back(5);
+    data.emplace_back(6);
+    data.emplace_back(2);
+    data.emplace_back(7);
+    data.emplace_back(4);
 
-    auto op = [](std::shared_ptr<int> a, std::shared_ptr<int> b) -> bool {
-        return *a == *b;
+    auto equalOp = [](const int& a, const int& b) -> bool {
+        return a == b;
     };
 
-    auto finishOp = [](const AsyncResult<std::vector<std::shared_ptr<int>>>& result) -> std::future<AsyncResult<std::vector<std::shared_ptr<int>>>> {
-        return result.asFulfilledFuture();
+    auto finishOp = [](OpResult<std::vector<int>>&& result, Unique<int>::callback_t cb)->void {
+        if(result.wasError())
+        {
+            cb(AsyncResult(result.error()));
+        }
+        else
+        {
+            bool isUnique = true;
+            auto results = result.move();
+            for(auto i = 0; i < results.size(); ++i)
+            {
+                auto val = i+1;
+                isUnique = isUnique && (val == results[i]);
+            }
+            if(isUnique && results.size() == 7)
+            {
+                cb(AsyncResult());
+            }
+            else
+            {
+                cb(AsyncResult(std::string("not unique")));
+            }
+        }
     };
 
-    AsyncResult<std::vector<std::shared_ptr<int>>> result;
-    result = Unique<int, std::vector<std::shared_ptr<int>>>(manager, op, data).execute(finishOp).get();
-    ASSERT_NO_THROW(result.throwOrGet());
-    std::shared_ptr<std::vector<std::shared_ptr<int>>> uniqueData;
-    ASSERT_NO_THROW(uniqueData = result.throwOrGet());
-    ASSERT_TRUE(uniqueData);
-    ASSERT_EQ(7, uniqueData->size());
-    std::sort(uniqueData->begin(), uniqueData->end(), [](std::shared_ptr<int> a, std::shared_ptr<int> b) -> bool {
-        return *a < *b;
-    } );
-    for(auto i = 0; i < uniqueData->size(); ++i)
-    {
-        EXPECT_EQ(i+1, *(uniqueData->at(i)));
-    }
+    AsyncResult result;
+    result = Unique<int>(manager, equalOp, std::move(data)).then(finishOp).get();
+    EXPECT_TRUE(result.wasSuccessful());
 
     manager->shutdown();
 }

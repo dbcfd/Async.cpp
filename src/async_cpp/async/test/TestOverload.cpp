@@ -4,7 +4,7 @@
 #include "async_cpp/async/ParallelForEach.h"
 #include "async_cpp/async/Series.h"
 
-#include "async_cpp/tasks/Manager.h"
+#include "async_cpp/tasks/AsioManager.h"
 
 #include <chrono>
 
@@ -16,73 +16,68 @@ using namespace async_cpp::async;
 
 TEST(OVERLOAD_TEST, SERIES)
 {
+    typedef std::chrono::high_resolution_clock::time_point data_t;
     size_t nbTasks = 5;
-    auto manager(std::make_shared<tasks::Manager>(3));
-    std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
+    auto manager(std::make_shared<tasks::AsioManager>(3));
+    std::vector<data_t> times;
 
-    auto func = [&times](size_t index)->std::future<AsyncResult<void>> {
-        times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
-            new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
-            );
-        return AsyncResult<void>().asFulfilledFuture();
+    auto func = [&times](size_t, ParallelFor<data_t>::callback_t cb)->void {
+        cb(OpResult<data_t>(std::chrono::high_resolution_clock::now()));  
     };
 
-    auto parallel5 = ParallelFor<void, void>(manager,
-        [](size_t)->std::future<AsyncResult<void>> {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    return AsyncResult<void>().asFulfilledFuture();
-        }, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto parallel5 = ParallelFor<data_t>(manager,
+        [](size_t, ParallelFor<data_t>::callback_t cb)->void {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            cb(OpResult<data_t>());
+    }, 5).then( [](OpResult<ParallelFor<data_t>::result_set_t>&&, ParallelFor<data_t>::complete_t cb)->void { cb(AsyncResult()); } );
 
-    auto parallel25 = ParallelFor<void, void>(manager,
-        [](size_t)->std::future<AsyncResult<void>> {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return AsyncResult<void>().asFulfilledFuture();
-        }, 25).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto parallel25 = ParallelFor<data_t>(manager,
+        [](size_t, ParallelFor<data_t>::callback_t cb)->void {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            cb(OpResult<data_t>());
+    }, 25).then( [](OpResult<ParallelFor<data_t>::result_set_t>&&, ParallelFor<data_t>::complete_t cb)->void { cb(AsyncResult()); } );
 
-    auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
-        [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
-            bool wasSuccessful = true;
-            for(auto& res : results)
+    auto parallelTimes = ParallelFor<data_t>(manager, func, nbTasks).then(
+        [&times](OpResult<ParallelFor<data_t>::result_set_t>&& result, ParallelFor<data_t>::complete_t cb)->void {
+            auto results = result.throwOrMove();
+            for(auto& tp : results)
             {
-                wasSuccessful &= !res.wasError();
+                times.emplace_back(tp.throwOrMove());
             }
-            if(wasSuccessful)
-            {
-                times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
-                    new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
-                    );
-            }
-            return AsyncResult<void>().asFulfilledFuture();
-        } );
+            cb(AsyncResult());
+    } );
 
 
-    std::function<std::future<AsyncResult<void>>(const AsyncResult<void>&)> ops[] = {
-        [&parallel5](const AsyncResult<void>&)->std::future<AsyncResult<void>> {
-            return std::move(parallel5);
+    Series<int>::operation_t ops[] = {
+        [&parallel5](OpResult<int>&&, Series<int>::callback_t cb)->void {
+            parallel5.get().check();
+            cb(OpResult<int>());
         },
-        [&parallel25](const AsyncResult<void>&)->std::future<AsyncResult<void>> {
-            return std::move(parallel25);
+        [&parallel25](OpResult<int>&&, Series<int>::callback_t cb)->void {
+            parallel25.get().check();
+            cb(OpResult<int>());
         }, 
-        [](const AsyncResult<void>&)->std::future<AsyncResult<void>> {
+        [](OpResult<int>&&, Series<int>::callback_t cb)->void {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult<void>().asFulfilledFuture();
+            cb(OpResult<int>());
         },
-        [](const AsyncResult<void>&)->std::future<AsyncResult<void>> {
+        [](OpResult<int>&&, Series<int>::callback_t cb)->void {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult<void>().asFulfilledFuture();
+            cb(OpResult<int>());
         },
-        [&parallelTimes](const AsyncResult<void>&)->std::future<AsyncResult<void>> {
-            return std::move(parallelTimes);
+        [&parallelTimes](OpResult<int>&&, Series<int>::callback_t cb)->void {
+            parallelTimes.get().check();
+            cb(OpResult<int>());
         }
     };
 
-    auto result = Series<void, void>(manager, ops, 5).execute( [](const AsyncResult<void>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto result = Series<int>(manager, ops, 5).then([](OpResult<int>&&, Series<int>::complete_t cb)->void { cb(AsyncResult()); } );
 
-    ASSERT_NO_THROW(result.get().throwIfError());
+    ASSERT_NO_THROW(result.get());
 
     for(size_t idx = 0; idx < nbTasks; ++idx)
     {
-        ASSERT_LE(times[idx]->time_since_epoch().count(), times[nbTasks]->time_since_epoch().count());
+        ASSERT_LE(times[idx].time_since_epoch().count(), times[nbTasks].time_since_epoch().count());
     }
 
     manager->shutdown();
@@ -90,73 +85,71 @@ TEST(OVERLOAD_TEST, SERIES)
 
 TEST(OVERLOAD_TEST, PARALLEL)
 {
+    typedef std::chrono::high_resolution_clock::time_point data_t;
     size_t nbTasks = 5;
-    auto manager(std::make_shared<tasks::Manager>(3));
-    std::vector<std::unique_ptr<std::chrono::high_resolution_clock::time_point>> times(nbTasks+1);
+    auto manager(std::make_shared<tasks::AsioManager>(3));
+    std::vector<data_t> times;
 
-    auto func = [&times](size_t index)->std::future<AsyncResult<void>> {
-        times[index] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
-            new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
-            );
-        return AsyncResult<void>().asFulfilledFuture();
+    auto func = [&times](size_t, ParallelFor<data_t>::callback_t cb)->void {
+        cb(OpResult<data_t>(std::chrono::high_resolution_clock::now()));  
     };
 
-    auto parallel5 = ParallelFor<void, void>(manager,
-        [](size_t)->std::future<AsyncResult<void>> {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    return AsyncResult<void>().asFulfilledFuture();
-        }, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto parallel5 = ParallelFor<data_t>(manager,
+        [](size_t, ParallelFor<data_t>::callback_t cb)->void {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            cb(OpResult<data_t>());
+    }, 5).then( [](OpResult<ParallelFor<data_t>::result_set_t>&&, ParallelFor<data_t>::complete_t cb)->void { cb(AsyncResult()); } );
 
-    auto parallel25 = ParallelFor<void, void>(manager,
-        [](size_t)->std::future<AsyncResult<void>> {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return AsyncResult<void>().asFulfilledFuture();
-        }, 25).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto parallel25 = ParallelFor<data_t>(manager,
+        [](size_t, ParallelFor<data_t>::callback_t cb)->void {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            cb(OpResult<data_t>());
+    }, 25).then( [](OpResult<ParallelFor<data_t>::result_set_t>&&, ParallelFor<data_t>::complete_t cb)->void { cb(AsyncResult()); } );
 
-    auto parallelTimes = ParallelFor<void, void>(manager, func, nbTasks).execute(
-        [&times](const std::vector<AsyncResult<void>>& results)->std::future<AsyncResult<void>> {
-            bool wasSuccessful = true;
-            for(auto& res : results)
+    auto parallelTimes = ParallelFor<data_t>(manager, func, nbTasks).then(
+        [&times](OpResult<ParallelFor<data_t>::result_set_t>&& result, ParallelFor<data_t>::complete_t cb)->void {
+            auto results = result.throwOrMove();
+            for(auto& tp : results)
             {
-                wasSuccessful &= !res.wasError();
+                times.emplace_back(tp.throwOrMove());
             }
-            if(wasSuccessful)
-            {
-                times[5] = std::unique_ptr<std::chrono::high_resolution_clock::time_point>(
-                    new std::chrono::high_resolution_clock::time_point(std::chrono::high_resolution_clock::now())
-                    );
-            }
-            return AsyncResult<void>().asFulfilledFuture();
-        } );
+            cb(AsyncResult());
+    } );
 
 
-    std::function<std::future<AsyncResult<void>>()> ops[] = {
-        [&parallel5]()->std::future<AsyncResult<void>> {
-            return std::move(parallel5);
+    Parallel<int>::operation_t ops[] = {
+        [&parallel5](Parallel<int>::callback_t cb)->void {
+            parallel5.get().check();
+            cb(OpResult<int>());
         },
-        [&parallel25]()->std::future<AsyncResult<void>> {
-            return std::move(parallel25);
+        [&parallel25](Parallel<int>::callback_t cb)->void {
+            parallel25.get().check();
+            cb(OpResult<int>());
         }, 
-        []()->std::future<AsyncResult<void>> {
+        [](Parallel<int>::callback_t cb)->void {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult<void>().asFulfilledFuture();
+            cb(OpResult<int>());
         },
-        []()->std::future<AsyncResult<void>> {
+        [](Parallel<int>::callback_t cb)->void {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            return AsyncResult<void>().asFulfilledFuture();
+            cb(OpResult<int>());
         },
-        [&parallelTimes]()->std::future<AsyncResult<void>> {
-            return std::move(parallelTimes);
+        [&parallelTimes](Parallel<int>::callback_t cb)->void {
+            parallelTimes.get().check();
+            cb(OpResult<int>());
         }
     };
 
-    auto result = Parallel<void, void>(manager, ops, 5).execute( [](const std::vector<AsyncResult<void>>&) -> std::future<AsyncResult<void>> { return AsyncResult<void>().asFulfilledFuture(); } );
+    auto result = Parallel<int>(manager, ops, 5).then( 
+        [](OpResult<Parallel<int>::result_set_t>&&, Parallel<int>::complete_t cb)->void {
+            cb(AsyncResult());
+    } );
 
     ASSERT_NO_THROW(result.get().throwIfError());
 
     for(size_t idx = 0; idx < nbTasks; ++idx)
     {
-        ASSERT_LE(times[idx]->time_since_epoch().count(), times[nbTasks]->time_since_epoch().count());
+        ASSERT_LE(times[idx].time_since_epoch().count(), times[nbTasks].time_since_epoch().count());
     }
 
     manager->shutdown();

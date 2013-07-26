@@ -1,7 +1,6 @@
 set (TARGET TestAsync)
 
 set(SOURCES
-    TestAsioOverload.cpp
     TestFilter.cpp
     TestMap.cpp
     TestOverload.cpp

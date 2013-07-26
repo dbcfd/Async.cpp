@@ -1,9 +1,5 @@
 #pragma once
-#include "async_cpp/async/Async.h"
 #include "async_cpp/async/detail/ParallelCollectTask.h"
-
-#include <functional>
-#include <vector>
 
 namespace async_cpp {
 namespace async {
@@ -12,32 +8,39 @@ namespace detail {
 /**
  * Parallel running task
  */
-template<class TDATA, class TRESULT>
+template<class TDATA, class TRESULT=TDATA>
 class ParallelTask : public IParallelTask {
 public:
+    typedef typename std::function<void(OpResult<TRESULT>&&)> callback_t;
+    typedef typename std::function<void(callback_t)> operation_t;
+
     ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
-        std::function<std::future<AsyncResult<TDATA>>(void)> generateResult,
-        std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> parallelCollectTask);
+        typename operation_t generateResult,
+        const size_t taskOrder,
+        std::shared_ptr<ParallelCollectTask<TRESULT>> parallelCollectTask);
     virtual ~ParallelTask();
 
 protected:
     virtual void performSpecific() final;
-    virtual void notifyFailureToPerform() final;
+    virtual void notifyCancel() final;
+    virtual void notifyException(const std::exception& ex) final;
 
 private:
-    std::function<std::future<AsyncResult<TDATA>>(void)> mGenerateResultFunc;
-    std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> mCollectTask;
+    typename operation_t mGenerateResultFunc;
+    std::shared_ptr<ParallelCollectTask<TRESULT>> mCollectTask;
+    size_t mTaskOrder;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
 ParallelTask<TDATA, TRESULT>::ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
-        std::function<std::future<AsyncResult<TDATA>>(void)> generateResult,
-        std::shared_ptr<ParallelCollectTask<TDATA, TRESULT>> collectTask)
-    : IParallelTask(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask)
+        typename operation_t generateResult,
+        const size_t taskOrder,
+        std::shared_ptr<ParallelCollectTask<TRESULT>> collectTask)
+    : IParallelTask(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask), mTaskOrder(taskOrder)
 {
-    assert(collectTask);
+    if(!mCollectTask) { throw(std::invalid_argument("ParallelTask: No collect task")); }
 }
 
 //------------------------------------------------------------------------------
@@ -51,42 +54,24 @@ ParallelTask<TDATA, TRESULT>::~ParallelTask()
 template<class TDATA, class TRESULT>
 void ParallelTask<TDATA, TRESULT>::performSpecific()
 {
-    std::future<AsyncResult<TDATA>> future;
-    try 
-    {
-        future = mGenerateResultFunc();
-    }
-    catch(std::exception& ex)
-    {
-        future = AsyncResult<TDATA>(ex.what()).asFulfilledFuture();
-    }
-    catch(...)
-    {
-        future = AsyncResult<TDATA>("Parallel(For/Each): Unknown exception, please verify parallel tasks or use std::exception").asFulfilledFuture();
-    }
-    auto tasksRemaining = mCollectTask->notifyTaskCompletion(std::move(future));
-    if(0 == tasksRemaining)
-    {
-        if(auto mgr = mManager.lock())
-        {  
-            mgr->run(mCollectTask);
-        }
-        else
-        {
-            mCollectTask->failToPerform();
-        }
-    }
+    auto callback = [this](OpResult<TRESULT>&& result)->void {
+        mCollectTask->notifyCompletion(mTaskOrder, std::move(result));
+    };
+    mGenerateResultFunc(callback);
 }
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-void ParallelTask<TDATA, TRESULT>::notifyFailureToPerform()
+void ParallelTask<TDATA, TRESULT>::notifyCancel()
 {
-    auto tasksRemaining = mCollectTask->notifyTaskCompletion(AsyncResult<TDATA>("ParallelTask: Failed to perform").asFulfilledFuture());
-    if(0 == tasksRemaining)
-    {
-        mCollectTask->failToPerform();
-    }
+    mCollectTask->notifyCompletion(mTaskOrder, OpResult<TRESULT>(std::string("Cancelled")));
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+void ParallelTask<TDATA, TRESULT>::notifyException(const std::exception& ex)
+{
+    mCollectTask->notifyCompletion(mTaskOrder, OpResult<TRESULT>(std::string(ex.what())));
 }
 
 }

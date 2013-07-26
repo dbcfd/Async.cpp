@@ -5,10 +5,8 @@ set(DETAIL_HEADERS
     detail/ISeriesTask.h
     detail/ParallelCollectTask.h
     detail/ParallelTask.h
-    detail/ParallelTerminalTask.h
     detail/SeriesCollectTask.h
     detail/SeriesTask.h
-    detail/SeriesTerminalTask.h
 )
 
 set(DETAIL_SOURCES
@@ -16,10 +14,8 @@ set(DETAIL_SOURCES
     detail/ISeriesTask.cpp
     detail/ParallelCollectTask.cpp
     detail/ParallelTask.cpp
-    detail/ParallelTerminalTask.cpp
     detail/SeriesCollectTask.cpp
     detail/SeriesTask.cpp
-    detail/SeriesTerminalTask.cpp
 )
 
 source_group("Header Files\\Detail" FILES ${DETAIL_HEADERS})
@@ -29,7 +25,9 @@ set(HEADERS
     Async.h
     AsyncResult.h
     Filter.h
+    IAsyncResult.h
     Map.h
+    OpResult.h
     Parallel.h
     ParallelFor.h
     ParallelForEach.h
@@ -40,7 +38,9 @@ set(HEADERS
 set(SOURCES
     AsyncResult.cpp
     Filter.cpp
+    IAsyncResult.cpp
     Map.cpp
+    OpResult.cpp
     Parallel.cpp
     ParallelFor.cpp
     ParallelForEach.cpp

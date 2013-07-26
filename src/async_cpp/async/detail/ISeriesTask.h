@@ -1,5 +1,5 @@
 #pragma once
-#include "async_cpp/async/Async.h"
+#include "async_cpp/async/OpResult.h"
 
 #include "async_cpp/tasks/IManager.h"
 #include "async_cpp/tasks/Task.h"
@@ -8,37 +8,27 @@ namespace async_cpp {
 namespace async {
 namespace detail {
 
+//------------------------------------------------------------------------------
 template<class TDATA>
 class ISeriesTask : public tasks::Task {
 public:
     ISeriesTask(std::weak_ptr<tasks::IManager> mgr);
-    ISeriesTask(ISeriesTask&& other);
     virtual ~ISeriesTask();
 
-    virtual void cancel() = 0;
+    void begin(OpResult<TDATA>&& result);
 
-    void forwardFuture(std::future<AsyncResult<TDATA>>&& future);
 protected:
     ISeriesTask(const ISeriesTask& other);
 
-    bool mIsCancelled;
     std::weak_ptr<tasks::IManager> mManager;
-    std::future<AsyncResult<TDATA>> mForwardedFuture;
+    OpResult<TDATA> mPreviousResult;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
 template<class TDATA>
 ISeriesTask<TDATA>::ISeriesTask(std::weak_ptr<tasks::IManager> mgr)
-    : Task(), mManager(mgr), mIsCancelled(false)
-{
-    
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA>
-ISeriesTask<TDATA>::ISeriesTask(ISeriesTask&& other)
-    : Task(), mManager(other. mManager), mForwardedFuture(std::move(other.mForwardedFuture)), mIsCancelled(other.mIsCancelled)
+    : Task(), mManager(mgr)
 {
     
 }
@@ -52,9 +42,10 @@ ISeriesTask<TDATA>::~ISeriesTask()
 
 //------------------------------------------------------------------------------
 template<class TDATA>
-void ISeriesTask<TDATA>::forwardFuture(std::future<AsyncResult<TDATA>>&& forwardedFuture)
+void ISeriesTask<TDATA>::begin(OpResult<TDATA>&& result)
 {
-    mForwardedFuture = std::move(forwardedFuture);
+    mPreviousResult = std::move(result);
+    mManager.lock()->run(shared_from_this());
 }
 
 }

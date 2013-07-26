@@ -1,8 +1,5 @@
 #pragma once
-#include "async_cpp/async/Async.h"
 #include "async_cpp/async/ParallelForEach.h"
-
-#include <vector>
 
 namespace async_cpp {
 namespace async {
@@ -10,82 +7,97 @@ namespace async {
 /**
  * Filter a set of data using a criteria
  */
-template<class TDATA, class TRESULT = TDATA>
+template<class TDATA>
 class Filter {
 public:
+    typedef typename std::function<bool(const TDATA&)> filter_t;
+    typedef typename ParallelForEach<TDATA>::complete_t callback_t;
+    typedef std::function<void(OpResult<std::vector<TDATA>>&&, typename Filter<TDATA>::callback_t)> then_t;
     /**
      * Create a filter operation that will filter a set of data based on an operation.
      * @param manager Manager to use with filter operation
      * @param filterOp Operation to use for filtering
      * @param data Data to be filtered
      */
-    Filter(std::shared_ptr<tasks::IManager> manager, 
-        std::function<bool(std::shared_ptr<TDATA>)> filterOp,
-        const std::vector<std::shared_ptr<TDATA>>& data);
+    Filter(tasks::ManagerPtr manager, 
+        typename filter_t filterOp,
+        std::vector<TDATA>&& data);
 
     /**
      * Run the operation across the set of data, invoking a task with the filtered results
      * @param onFilter Function to invoke when filter operation is complete, receiving filtered data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onFilter) const;
+    std::future<AsyncResult> then(typename then_t onFilter);
+
+    /**
+     * Cancel any outstanding operations.
+     */
+    void cancel();
 
 private:
-    std::function<bool(std::shared_ptr<TDATA>)> mOp;
-    std::shared_ptr<tasks::IManager> mManager;
-    std::vector<std::shared_ptr<TDATA>> mData;
+    typename filter_t mOp;
+    tasks::ManagerPtr mManager;
+    std::vector<TDATA> mData;
+    std::shared_ptr<ParallelForEach<TDATA>> mParallel;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-Filter<TDATA, TRESULT>::Filter(std::shared_ptr<tasks::IManager> manager, 
-                      std::function<bool(std::shared_ptr<TDATA>)> filterOp, 
-                      const std::vector<std::shared_ptr<TDATA>>& data)
-    : mManager(manager), mOp(filterOp), mData(data)
+template<class TDATA>
+Filter<TDATA>::Filter(tasks::ManagerPtr manager, 
+                      typename filter_t filterOp, 
+                      std::vector<TDATA>&& data)
+    : mManager(manager), mOp(filterOp), mData(std::move(data))
 {
 
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Filter<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onFilter) const
+template<class TDATA>
+std::future<AsyncResult> Filter<TDATA>::then(typename then_t onFilter)
 {
-    auto op = [this](std::shared_ptr<TDATA> value) -> std::future<AsyncResult<TDATA>> {
+    auto op = [this](TDATA& value, typename detail::ParallelTask<TDATA>::callback_t callback) -> void {
         if(mOp(value))
         {
-            return AsyncResult<TDATA>(value).asFulfilledFuture();
+            callback(OpResult<TDATA>(std::move(value)));
         }
         else
         {
-            return AsyncResult<TDATA>().asFulfilledFuture();
+            callback(OpResult<TDATA>());
         }
     };
-    return ParallelForEach<TDATA, TDATA, TRESULT>(mManager, op, mData).execute(
-        [onFilter](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
-            try
+    mParallel = std::make_shared<ParallelForEach<TDATA>>(mManager, op, std::move(mData));
+    return mParallel->then(
+        [onFilter](OpResult<typename ParallelForEach<TDATA>::result_set_t>&& result, 
+                    callback_t callback)->void
+    {
+        if(result.wasError())
+        {
+            onFilter(OpResult<std::vector<TDATA>>(result.error()), callback);
+        }
+        else
+        {
+            std::vector<TDATA> filteredResults;
+            auto results = result.move();
+            filteredResults.reserve(results.size());
+            for(auto& filteredResult : results)
             {
-                std::vector<std::shared_ptr<TDATA>> filteredResults;
-                filteredResults.reserve(results.size());
-                for(auto result : results)
+                if(filteredResult.hasData())
                 {
-                    auto value = result.throwOrGet();
-                    if(value)
-                    {
-                        filteredResults.emplace_back(value);
-                    }
+                    filteredResults.emplace_back(filteredResult.move());
                 }
-                filteredResults.shrink_to_fit();
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(std::make_shared<std::vector<std::shared_ptr<TDATA>>>(std::move(filteredResults))));
             }
-            catch(std::exception& ex)
-            {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
-            }
-            catch(...)
-            {
-                return onFilter(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Filter: Unknown error"));
-            }
-        } );
+            filteredResults.shrink_to_fit();
+            onFilter(OpResult<std::vector<TDATA>>(std::move(filteredResults)), callback);
+        }
+    } );
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void Filter<TDATA>::cancel()
+{
+    if(mParallel) mParallel->cancel();
 }
 
 }

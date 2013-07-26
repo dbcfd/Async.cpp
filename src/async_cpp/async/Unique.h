@@ -10,84 +10,100 @@ namespace async {
 /**
  * Find unique results in a set of data using a comparison operator
  */
-template<class TDATA, class TRESULT = TDATA>
+template<class TDATA>
 class Unique {
 public:
+    typedef typename std::function<bool(const TDATA&, const TDATA&)> equal_op_t;
+    typedef typename ParallelFor<TDATA>::complete_t callback_t;
+    typedef std::function<void(OpResult<std::vector<TDATA>>&&, typename Unique<TDATA>::callback_t)> then_t;
     /**
      * Create a filter operation that will filter a set of data based on an operation.
      * @param manager Manager to use with filter operation
      * @param equalOp Operation to use to determine if two data points are equal
      * @param data Data to be filtered
      */
-    Unique(std::shared_ptr<tasks::IManager> manager, 
-        std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> equalOp,
-        const std::vector<std::shared_ptr<TDATA>>& data);
+    Unique(tasks::ManagerPtr manager, 
+        typename equal_op_t equalOp,
+        std::vector<TDATA>&& data);
 
     /**
      * Run the operation across the set of data, invoking a task with the unique results
      * @param onUnique Function to invoke when uniqueness operation is complete, receiving unique data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onUnique) const;
+    std::future<AsyncResult> then(typename then_t onUnique);
+
+    /**
+     * Cancel outstanding tasks.
+     */
+    void cancel();
 
 private:
-    std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> mOp;
-    std::shared_ptr<tasks::IManager> mManager;
-    std::vector<std::shared_ptr<TDATA>> mData;
+    typename equal_op_t mOp;
+    tasks::ManagerPtr mManager;
+    std::vector<TDATA> mData;
+    std::shared_ptr<ParallelFor<TDATA>> mParallel;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-Unique<TDATA, TRESULT>::Unique(std::shared_ptr<tasks::IManager> manager, 
-                      std::function<bool(std::shared_ptr<TDATA>, std::shared_ptr<TDATA>)> uniqueOp, 
-                      const std::vector<std::shared_ptr<TDATA>>& data)
-    : mManager(manager), mOp(uniqueOp), mData(data)
+template<class TDATA>
+Unique<TDATA>::Unique(tasks::ManagerPtr manager, 
+                      typename equal_op_t equalOp, 
+                      std::vector<TDATA>&& data)
+    : mManager(manager), mOp(equalOp), mData(std::move(data))
 {
-
+    if(!mManager) { throw(std::invalid_argument("Unique: Manager cannot be null")); }
+    if(mData.empty()) { throw(std::invalid_argument("Unique: Empty data set")); }
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult<TRESULT>> Unique<TDATA, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TDATA>>>&)> onUnique) const
+template<class TDATA>
+std::future<AsyncResult> Unique<TDATA>::then(typename then_t onUnique)
 {
-    auto saveData = std::make_shared<std::vector<std::shared_ptr<TDATA>>>(mData);
-    auto op = [saveData, this](size_t index) -> std::future<AsyncResult<TDATA>> {
+    auto saveData = std::make_shared<std::vector<TDATA>>(std::move(mData));
+    auto op = [saveData, this](size_t index, typename ParallelFor<TDATA>::callback_t callback) -> void {
         for(size_t i = 0; i < index; ++i)
         {
             if(mOp(saveData->at(i), saveData->at(index)))
             {
                 //previous element in list matches this item, item is not the unique one
-                return AsyncResult<TDATA>().asFulfilledFuture();
+                callback(OpResult<TDATA>());
             }
         }
-        return AsyncResult<TDATA>(saveData->at(index)).asFulfilledFuture();
+        callback(OpResult<TDATA>(std::move(saveData->at(index))));
     };
-    return ParallelFor<TDATA, TRESULT>(mManager, op, mData.size()).execute(
-        [onUnique](const std::vector<AsyncResult<TDATA>>& results)->std::future<AsyncResult<TRESULT>> {
-            try
+    mParallel = std::make_shared<ParallelFor<TDATA>>(mManager, op, mData.size());
+    return mParallel->then(
+        [onUnique](OpResult<typename ParallelFor<TDATA>::result_set_t>&& result, 
+                    typename callback_t callback)->void 
+        {
+            if(result.wasError())
             {
-                std::vector<std::shared_ptr<TDATA>> uniqueResults;
-                uniqueResults.reserve(results.size());
-                for(auto result : results)
+                onUnique(OpResult<std::vector<TDATA>>(result.error()), callback);
+            }
+            else
+            {
+                std::vector<TDATA> filteredResults;
+                auto results = result.move();
+                filteredResults.reserve(results.size());
+                for(auto& filteredResult : results)
                 {
-                    auto value = result.throwOrGet();
-                    if(value)
+                    if(filteredResult.hasData())
                     {
-                        uniqueResults.emplace_back(value);
+                        filteredResults.emplace_back(filteredResult.move());
                     }
                 }
-                uniqueResults.shrink_to_fit();
-                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(std::make_shared<std::vector<std::shared_ptr<TDATA>>>(std::move(uniqueResults))));
-            }
-            catch(std::exception& ex)
-            {
-                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>(ex.what()));
-            }
-            catch(...)
-            {
-                return onUnique(AsyncResult<std::vector<std::shared_ptr<TDATA>>>("Unique: Unknown error"));
+                filteredResults.shrink_to_fit();
+                onUnique(OpResult<std::vector<TDATA>>(std::move(filteredResults)), callback);
             }
         } );
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+void Unique<TDATA>::cancel()
+{
+    if(mParallel) mParallel->cancel();
 }
 
 }

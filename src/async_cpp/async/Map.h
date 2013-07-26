@@ -10,74 +10,87 @@ namespace async {
 /**
  * Filter a set of data using a criteria
  */
-template<class TIN, class TOUT, class TRESULT = TOUT>
+template<class TDATA, class TRESULT>
 class Map {
 public:
+    typedef typename std::function<OpResult<TRESULT>(TDATA&)> map_op_t;
+    typedef typename ParallelForEach<TDATA>::complete_t callback_t;
+    typedef std::function<void(OpResult<std::vector<TRESULT>>&&, typename Map<TDATA, TRESULT>::callback_t)> then_t;
     /**
      * Create a filter operation that will filter a set of data based on an operation.
      * @param manager Manager to use with filter operation
      * @param mapOp Operation to use for filtering
      * @param data Data to be mapped
      */
-    Map(std::shared_ptr<tasks::IManager> manager, 
-        std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> mapOp,
-        const std::vector<std::shared_ptr<TIN>>& data);
+    Map(tasks::ManagerPtr manager, 
+        typename map_op_t mapOp,
+        std::vector<TDATA>&& data);
 
     /**
      * Run the operation across the set of data, invoking a task with the mapped results
      * @param afterMap Function to invoke when map operation is complete, receiving mapped data
      */
-    std::future<AsyncResult<TRESULT>> execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> afterMap) const;
+    std::future<AsyncResult> then(typename then_t afterMap);
+
+    /**
+     * Cancel any outstanding operations.
+     */
+    void cancel();
 
 private:
-    std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> mOp;
-    std::shared_ptr<tasks::IManager> mManager;
-    std::vector<std::shared_ptr<TIN>> mData;
+    typename map_op_t mOp;
+    tasks::ManagerPtr mManager;
+    std::vector<TDATA> mData;
+    std::shared_ptr<ParallelForEach<TDATA, TRESULT>> mParallel;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TIN, class TOUT, class TRESULT>
-Map<TIN, TOUT, TRESULT>::Map(std::shared_ptr<tasks::IManager> manager, 
-                      std::function<AsyncResult<TOUT>(std::shared_ptr<TIN>)> filterOp, 
-                      const std::vector<std::shared_ptr<TIN>>& data)
-    : mManager(manager), mOp(filterOp), mData(data)
+template<class TDATA, class TRESULT>
+Map<TDATA, TRESULT>::Map(tasks::ManagerPtr manager, 
+                      typename map_op_t mapOp, 
+                      std::vector<TDATA>&& data)
+    : mManager(manager), mOp(mapOp), mData(std::move(data))
 {
 
 }
 
 //------------------------------------------------------------------------------
-template<class TIN, class TOUT, class TRESULT>
-std::future<AsyncResult<TRESULT>> Map<TIN, TOUT, TRESULT>::execute(std::function<std::future<AsyncResult<TRESULT>>(const AsyncResult<std::vector<std::shared_ptr<TOUT>>>&)> afterMap) const
+template<class TDATA, class TRESULT>
+std::future<AsyncResult> Map<TDATA, TRESULT>::then(typename then_t afterMap)
 {
-    auto op = [this](std::shared_ptr<TIN> value) -> std::future<AsyncResult<TOUT>> {
-        return AsyncResult<TOUT>(mOp(value)).asFulfilledFuture();
+    auto op = [this](TDATA& value, typename ParallelForEach<TDATA, TRESULT>::callback_t cb) -> void {
+        cb(OpResult<TRESULT>(mOp(value)));
     };
-    return ParallelForEach<TIN, TOUT, TRESULT>(mManager, op, mData).execute(
-        [afterMap](const std::vector<AsyncResult<TOUT>>& results)->std::future<AsyncResult<TRESULT>> {
-            try
+    mParallel = std::make_shared<ParallelForEach<TDATA, TRESULT>>(mManager, op, std::move(mData));
+    return mParallel->then(
+        [afterMap](OpResult<typename ParallelForEach<TDATA,TRESULT>::result_set_t>&& result, 
+                    typename callback_t callback)->void 
+        {
+            if(result.wasError())
             {
-                std::vector<std::shared_ptr<TOUT>> mappedResults;
+                afterMap(OpResult<std::vector<TRESULT>>(result.error()), callback);
+            }
+            else
+            {
+                std::vector<TRESULT> mappedResults;
+                auto results = result.move();
                 mappedResults.reserve(results.size());
-                for(auto result : results)
+                for(auto& mappedResult : results)
                 {
-                    auto value = result.throwOrGet();
-                    if(value)
-                    {
-                        mappedResults.emplace_back(value);
-                    }
+                    mappedResults.emplace_back(mappedResult.move());
                 }
-                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(std::make_shared<std::vector<std::shared_ptr<TOUT>>>(std::move(mappedResults))));
-            }
-            catch(std::exception& ex)
-            {
-                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>(ex.what()));
-            }
-            catch(...)
-            {
-                return afterMap(AsyncResult<std::vector<std::shared_ptr<TOUT>>>("Map: Unknown error"));
+                results.clear();
+                afterMap(OpResult<std::vector<TRESULT>>(std::move(mappedResults)), callback);
             }
         } );
+}
+
+//------------------------------------------------------------------------------
+template<class TDATA, class TRESULT>
+void Map<TDATA, TRESULT>::cancel()
+{
+    if(mParallel) mParallel->cancel();
 }
 
 }
