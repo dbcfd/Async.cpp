@@ -27,7 +27,7 @@ TEST(PARALLEL_FOR_TEST, BASIC)
     ParallelFor<data_t> parallel(manager, func, 5);
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, maxDur, this](OpResult<std::vector<data_t>>&& result, ParallelFor<data_t>::complete_t cb)->void {
+    auto future = parallel.then([&times, maxDur, this](OpResult<ParallelFor<data_t>::result_set_t>&& result, ParallelFor<data_t>::complete_t cb)->void {
         if(result.wasError())
         {
             cb(AsyncResult(result.error()));
@@ -44,7 +44,7 @@ TEST(PARALLEL_FOR_TEST, BASIC)
                     cb(AsyncResult(std::string("No previous time")));
                     return;
                 }
-                if(*prev != tp)
+                if(*prev != tp.throwOrMove())
                 {
                     cb(AsyncResult(std::string("Time mismatch")));
                     return;

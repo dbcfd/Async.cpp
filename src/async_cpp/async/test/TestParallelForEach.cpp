@@ -33,7 +33,7 @@ TEST(PARALLEL_FOREACH_TEST, BASIC)
     ParallelForEach<size_t, result_t> parallel(manager, func, std::move(data));
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, &maxDur](OpResult<std::vector<result_t>>&& result, ParallelForEach<size_t, result_t>::complete_t cb)->void {
+    auto future = parallel.then([&times, &maxDur](OpResult<ParallelForEach<size_t, result_t>::result_set_t>&& result, ParallelForEach<size_t, result_t>::complete_t cb)->void {
         if(result.wasError())
         {
             cb(AsyncResult(result.error()));
@@ -43,7 +43,7 @@ TEST(PARALLEL_FOREACH_TEST, BASIC)
             auto results = result.move();
             for(auto& tp : results)
             {
-                auto dur = std::chrono::high_resolution_clock::now() - tp;
+                auto dur = std::chrono::high_resolution_clock::now() - tp.throwOrMove();
                 maxDur = std::max(maxDur, dur);
             }
             cb(AsyncResult());

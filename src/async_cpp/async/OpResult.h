@@ -65,6 +65,13 @@ OpResult<TDATA>::OpResult(std::string&& error) : IAsyncResult(std::move(error))
 {
     
 }
+
+//------------------------------------------------------------------------------
+template<class TDATA>
+OpResult<TDATA>::OpResult() : IAsyncResult()
+{
+
+}
     
 //------------------------------------------------------------------------------
 template<class TDATA>

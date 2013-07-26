@@ -41,7 +41,7 @@ TEST(PARALLEL_TEST, BASIC)
     };
 
     auto future = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](OpResult<std::vector<bool>>&& result, Parallel<bool>::complete_t cb)->void {
+        [&taskRunOrder, &runCount](OpResult<Parallel<bool>::result_set_t>&& result, Parallel<bool>::complete_t cb)->void {
             if(result.wasError())
             {
                 cb(AsyncResult(result.error()));
@@ -97,7 +97,7 @@ TEST(PARALLEL_TEST, INTERRUPT)
     };
 
     auto future = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](OpResult<std::vector<bool>>&& results, Parallel<bool>::complete_t cb)->void{
+        [&taskRunOrder, &runCount](OpResult<Parallel<bool>::result_set_t>&& results, Parallel<bool>::complete_t cb)->void{
             if(results.wasError())
             {
                 cb(AsyncResult(results.error()));
@@ -129,7 +129,7 @@ TEST(PARALLEL_TEST, TIMING)
     Parallel<data_t> parallel(manager, ops);
     auto start = std::chrono::high_resolution_clock::now();
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
-    auto future = parallel.then([&start, &maxDur](OpResult<std::vector<data_t>>&& result, Parallel<data_t>::complete_t cb)->void {
+    auto future = parallel.then([&start, &maxDur](OpResult<Parallel<data_t>::result_set_t>&& result, Parallel<data_t>::complete_t cb)->void {
         if(result.wasError())
         {
             cb(AsyncResult(result.error()));
@@ -137,9 +137,9 @@ TEST(PARALLEL_TEST, TIMING)
         else
         {
             auto results = result.move();
-            for(auto taskFinish : results)
+            for(auto& taskFinish : results)
             {
-                maxDur = std::max(maxDur, taskFinish - start);
+                maxDur = std::max(maxDur, taskFinish.throwOrMove() - start);
             }
             cb(AsyncResult());
         }

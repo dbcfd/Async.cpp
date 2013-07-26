@@ -36,6 +36,15 @@ IAsyncResult::~IAsyncResult()
 }
 
 //------------------------------------------------------------------------------
+void IAsyncResult::throwIfError() const
+{
+    if(wasError())
+    {
+        throw(std::runtime_error(*mError));
+    }
+}
+
+//------------------------------------------------------------------------------
 const bool IAsyncResult::wasError() const
 {
     return (nullptr != mError);
