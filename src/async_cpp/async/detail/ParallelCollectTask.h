@@ -89,7 +89,7 @@ void ParallelCollectTask<TDATA>::performSpecific()
             mThenFunction(OpResult<result_set_t>(result.error()), callback);
             return;
         }
-        results.push_back(OpResult<TDATA>(result.move()));
+        results.push_back(std::move(result));
     }
 
     mResults.clear();

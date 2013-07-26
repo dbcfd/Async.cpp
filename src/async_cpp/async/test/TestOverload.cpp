@@ -71,7 +71,10 @@ TEST(OVERLOAD_TEST, SERIES)
         }
     };
 
-    auto result = Series<int>(manager, ops, 5).then([](OpResult<int>&&, Series<int>::complete_t cb)->void { cb(AsyncResult()); } );
+    auto result = Series<int>(manager, ops, 5).then([&times](OpResult<int>&&, Series<int>::complete_t cb)->void { 
+        times.emplace_back(std::chrono::high_resolution_clock::now());
+        cb(AsyncResult()); 
+    } );
 
     ASSERT_NO_THROW(result.get());
 
@@ -141,7 +144,8 @@ TEST(OVERLOAD_TEST, PARALLEL)
     };
 
     auto result = Parallel<int>(manager, ops, 5).then( 
-        [](OpResult<Parallel<int>::result_set_t>&&, Parallel<int>::complete_t cb)->void {
+        [&times](OpResult<Parallel<int>::result_set_t>&&, Parallel<int>::complete_t cb)->void {
+            times.emplace_back(std::chrono::high_resolution_clock::now());
             cb(AsyncResult());
     } );
 
