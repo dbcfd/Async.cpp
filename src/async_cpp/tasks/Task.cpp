@@ -27,7 +27,7 @@ void Task::buildMembers()
                 }
                 catch(std::exception& ex)
                 {
-                    onException(ex);
+                    notifyException(ex);
                 }
             }
             return false;
@@ -38,29 +38,29 @@ void Task::buildMembers()
 //------------------------------------------------------------------------------
 Task::~Task()
 {
-    failToPerform();
+    cancel();
 }
 
 //------------------------------------------------------------------------------
-void Task::onException(const std::exception&)
+void Task::notifyException(const std::exception&)
 {
     //do nothing
 }
 
 //------------------------------------------------------------------------------
-void Task::notifyFailureToPerform()
+void Task::notifyCancel()
 {
     //do nothing
 }
 
 //------------------------------------------------------------------------------
-void Task::failToPerform()
+void Task::cancel()
 {
     bool wasInvoked = mTaskInvoked.exchange(true);
     if(!wasInvoked) 
     {
         mTask(true);
-        this->notifyFailureToPerform();
+        this->notifyCancel();
     }
 }
 

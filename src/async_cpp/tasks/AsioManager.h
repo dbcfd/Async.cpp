@@ -39,6 +39,12 @@ public:
     virtual void run(std::shared_ptr<Task> task) final;
 
     /**
+     * Run a task in this manager at a specified time. If manager is shutdown, task will fail to perform.
+     * @param task Task to run
+     */
+    virtual void run(std::shared_ptr<Task> task, const std::chrono::high_resolution_clock::time_point& time) final;
+
+    /**
      * Shutdown this manager, including all workers. Any queued tasks will be marked as failing to complete.
      */
     virtual void shutdown() final;

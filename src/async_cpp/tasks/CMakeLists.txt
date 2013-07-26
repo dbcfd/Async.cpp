@@ -1,16 +1,26 @@
 set (TARGET Tasks)
 
 SET (DEPENDENCIES)
-file(GLOB HEADERS "*.h")
+set(HEADERS
+    AsioManager.h
+    IManager.h
+    Platform.h
+    Task.h
+    Tasks.h
+)
 
-file(GLOB SOURCES "*.cpp")
+set(SOURCES
+    AsioManager.cpp
+    IManager.cpp
+    Task.cpp
+)
 
 add_library (${TARGET} ${HEADERS} ${SOURCES}) 
 
 include(DllInstaller)
 
 if(Boost_FOUND)
-	add_definitions("-DHAS_BOOST -D_WIN32_WINNT=0x0501")
+	add_definitions("-DHAS_BOOST -D_WIN32_WINNT=0x0502")
 	include_directories(${Boost_INCLUDE_DIRS})
 	set(DEPENDENCIES ${DEPENDENCIES} ${Boost_LIBRARIES})
 	if(BUILD_SHARED_LIBS)

@@ -1,6 +1,7 @@
 #pragma once
 #include "async_cpp/tasks/Tasks.h"
 
+#include <chrono>
 #include <memory>
 
 namespace async_cpp {
@@ -18,6 +19,12 @@ public:
      * @param task Task to run
      */
     virtual void run(std::shared_ptr<Task> task) = 0;
+
+    /**
+     * Run a task in this manager at a specified time. If manager is shutdown, task will fail to perform.
+     * @param task Task to run
+     */
+    virtual void run(std::shared_ptr<Task> task, const std::chrono::high_resolution_clock::time_point& time) = 0;
 
     /**
      * Shutdown this manager. Any queued tasks will be marked as failing to complete.

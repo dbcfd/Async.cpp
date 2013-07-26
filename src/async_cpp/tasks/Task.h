@@ -36,12 +36,12 @@ public:
     /**
      * Mark this task as a failure by fulfilling its promise with false.
      */
-    void failToPerform();
+    void cancel();
 
 protected:
     virtual void performSpecific() = 0;
-    virtual void notifyFailureToPerform();
-    virtual void onException(const std::exception& ex);
+    virtual void notifyCancel();
+    virtual void notifyException(const std::exception& ex);
 
 private:
     Task(const Task& other);

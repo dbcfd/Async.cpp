@@ -67,7 +67,7 @@ void AsioManager::shutdown()
         mThreads->interrupt_all();
         while(!mTasksPending.empty())
         {
-            mTasksPending.front()->failToPerform();
+            mTasksPending.front()->cancel();
             mTasksPending.pop();
         }
         mThreads->join_all();
@@ -88,40 +88,76 @@ void AsioManager::waitForTasksToComplete()
 //------------------------------------------------------------------------------
 void AsioManager::run(std::shared_ptr<Task> task)
 {
-    assert(task);
-    if(mRunning)
+    if(task)
     {
+        if(mRunning)
         {
-            std::unique_lock<std::mutex> lock(mTasksMutex);
-            mTasksPending.push(task);
-        }
-        mService->post([this]()->void {
-            if(mRunning)
             {
-                std::shared_ptr<Task> task;
-                {
-                    std::unique_lock<std::mutex> lock(mTasksMutex);
-                    task = mTasksPending.front();
-                    mTasksPending.pop();
-                }
-                mTasksOutstanding.fetch_add(1);
-                try
-                {
-                    task->perform();
-                    mTasksOutstanding.fetch_sub(1);
-                    mTasksSignal.notify_all();
-                }
-                catch(...)
-                {
-                    mTasksOutstanding.fetch_sub(1);
-                    mTasksSignal.notify_all();
-                }
+                std::unique_lock<std::mutex> lock(mTasksMutex);
+                mTasksPending.push(task);
             }
-        } );
-    }  
-    else
+            mService->post([this]()->void {
+                if(mRunning)
+                {
+                    std::shared_ptr<Task> task;
+                    {
+                        std::unique_lock<std::mutex> lock(mTasksMutex);
+                        task = mTasksPending.front();
+                        mTasksPending.pop();
+                    }
+                    mTasksOutstanding.fetch_add(1);
+                    try
+                    {
+                        task->perform();
+                        mTasksOutstanding.fetch_sub(1);
+                        mTasksSignal.notify_all();
+                    }
+                    catch(...)
+                    {
+                        mTasksOutstanding.fetch_sub(1);
+                        mTasksSignal.notify_all();
+                    }
+                }
+            } );
+        }  
+        else
+        {
+            task->cancel();
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void AsioManager::run(std::shared_ptr<Task> task, const std::chrono::high_resolution_clock::time_point& time)
+{
+    if(task)
     {
-        task->failToPerform();
+        if(mRunning)
+        {
+            auto dur = std::chrono::duration_cast<std::chrono::microseconds>(time - std::chrono::high_resolution_clock::now());
+            if(dur.count() < 0)
+            {
+                run(task);
+            }
+            else
+            {
+                auto taskRunTimer = std::make_shared<boost::asio::deadline_timer>(*mService, boost::posix_time::microseconds((long)dur.count()));
+                taskRunTimer->async_wait([task, taskRunTimer, this](const boost::system::error_code& ec)->void {
+                    if(!ec)
+                    {
+                        run(task);
+                    }
+                    else
+                    {
+                        task->cancel();
+                    }
+                } );
+            }
+        }  
+        else
+        {
+            task->cancel();
+        }
     }
 }
 
