@@ -57,18 +57,17 @@ void AsioManager::shutdown()
     bool wasRunning = mRunning.exchange(false);
     if(wasRunning)
     {
+        mService->stop();
         {
             std::unique_lock<std::mutex> lock(mTasksMutex);
             mTasksSignal.wait(lock, [this]()->bool {
                 return (0 == mTasksOutstanding.load());
             } );
-        }
-        mService->stop();
-        mThreads->interrupt_all();
-        while(!mTasksPending.empty())
-        {
-            mTasksPending.front()->cancel();
-            mTasksPending.pop();
+            while(!mTasksPending.empty())
+            {
+                mTasksPending.front()->cancel();
+                mTasksPending.pop();
+            }
         }
         mThreads->join_all();
         mThreads.reset();
@@ -86,39 +85,41 @@ void AsioManager::waitForTasksToComplete()
 }
 
 //------------------------------------------------------------------------------
+void AsioManager::runNextTask(std::shared_ptr<IManager> manager)
+{
+    if(mRunning.load())
+    {
+        std::shared_ptr<Task> task;
+        {
+            std::lock_guard<std::mutex> lock(mTasksMutex);
+            if(!mTasksPending.empty())
+            {
+                task = mTasksPending.front();
+                mTasksPending.pop();
+            }
+        }
+        if(task)
+        {
+            mTasksOutstanding.fetch_add(1);
+            task->perform();
+            mTasksOutstanding.fetch_sub(1);
+            mTasksSignal.notify_all();
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 void AsioManager::run(std::shared_ptr<Task> task)
 {
     if(task)
     {
-        if(mRunning)
+        if(mRunning.load())
         {
             {
-                std::unique_lock<std::mutex> lock(mTasksMutex);
+                std::lock_guard<std::mutex> lock(mTasksMutex);
                 mTasksPending.push(task);
             }
-            mService->post([this]()->void {
-                if(mRunning)
-                {
-                    std::shared_ptr<Task> task;
-                    {
-                        std::unique_lock<std::mutex> lock(mTasksMutex);
-                        task = mTasksPending.front();
-                        mTasksPending.pop();
-                    }
-                    mTasksOutstanding.fetch_add(1);
-                    try
-                    {
-                        task->perform();
-                        mTasksOutstanding.fetch_sub(1);
-                        mTasksSignal.notify_all();
-                    }
-                    catch(...)
-                    {
-                        mTasksOutstanding.fetch_sub(1);
-                        mTasksSignal.notify_all();
-                    }
-                }
-            } );
+            mService->post(std::bind(&AsioManager::runNextTask, this, shared_from_this()));
         }  
         else
         {

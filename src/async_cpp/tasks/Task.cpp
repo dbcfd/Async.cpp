@@ -25,9 +25,16 @@ void Task::buildMembers()
                     performSpecific();
                     return true;
                 }
-                catch(std::exception& ex)
+                catch(...)
                 {
-                    notifyException(ex);
+                    try
+                    {
+                        notifyException(std::current_exception());
+                    }
+                    catch(...)
+                    {
+                        //notify caused an exception
+                    }
                 }
             }
             return false;
@@ -42,7 +49,7 @@ Task::~Task()
 }
 
 //------------------------------------------------------------------------------
-void Task::notifyException(const std::exception&)
+void Task::notifyException(std::exception_ptr ex)
 {
     //do nothing
 }

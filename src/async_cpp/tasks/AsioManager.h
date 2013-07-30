@@ -73,6 +73,8 @@ public:
      */
     inline std::shared_ptr<boost::asio::io_service> getService();
 protected:
+    void runNextTask(std::shared_ptr<IManager> manager);
+
     class WorkWrapper;
 
     std::atomic_bool mRunning;

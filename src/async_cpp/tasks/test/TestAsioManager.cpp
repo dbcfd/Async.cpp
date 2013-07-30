@@ -41,13 +41,13 @@ TEST(ASIO_MANAGER_TEST, BASIC_TEST)
     }
 
     //less workers than tasks, make sure they can go back and grab tasks
-    AsioManager manager(2);
+    auto manager = std::make_shared<AsioManager>(2);
 
-    EXPECT_EQ(2, manager.idealNumberOfSimultaneousTasks());
+    EXPECT_EQ(2, manager->idealNumberOfSimultaneousTasks());
 
     for(auto task : tasks)
     {
-        manager.run(task);
+        manager->run(task);
     }
 
     bool tasksCompleted = true;
@@ -72,31 +72,31 @@ TEST(ASIO_MANAGER_TEST, INTERMITTENT_TEST)
     }
 
     //less workers than tasks, make sure they can go back and grab tasks
-    AsioManager manager(2);
+    auto manager = std::make_shared<AsioManager>(2);
 
     bool tasksCompleted = true;
 
     //run some tasks
-    manager.run(tasks[0]);
-    manager.run(tasks[1]);
-    manager.run(tasks[2]);
-    manager.run(tasks[3]);
+    manager->run(tasks[0]);
+    manager->run(tasks[1]);
+    manager->run(tasks[2]);
+    manager->run(tasks[3]);
 
     {
         tasksCompleted &= tasks[0]->wasSuccessful();
     }
 
     //run some more
-    manager.run(tasks[4]);
-    manager.run(tasks[5]);
-    manager.run(tasks[6]);
-    manager.run(tasks[7]);
-    manager.run(tasks[8]);
+    manager->run(tasks[4]);
+    manager->run(tasks[5]);
+    manager->run(tasks[6]);
+    manager->run(tasks[7]);
+    manager->run(tasks[8]);
     {
         tasksCompleted &= tasks[3]->wasSuccessful();
     }
 
-    manager.waitForTasksToComplete();
+    manager->waitForTasksToComplete();
 
     int tasksToCheck[] = {1,2,4,5,6,7,8};
 
@@ -107,9 +107,9 @@ TEST(ASIO_MANAGER_TEST, INTERMITTENT_TEST)
 
     ASSERT_TRUE(tasksCompleted);
 
-    manager.shutdown();
+    manager->shutdown();
 
-    manager.run(tasks[9]);
+    manager->run(tasks[9]);
 
     {
         ASSERT_FALSE(tasks[9]->wasSuccessful());

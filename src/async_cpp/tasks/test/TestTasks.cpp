@@ -29,7 +29,7 @@ private:
         wasPerformed = true;
     }
 
-    virtual void notifyFailureToPerform() final
+    virtual void notifyCancel() final
     {
         failedToPerform = true;
     }
@@ -124,7 +124,7 @@ private:
         throw(std::runtime_error("Task threw an error"));
     }
 
-    virtual void notifyException(const std::exception&) final
+    virtual void notifyException(std::exception_ptr) final
     {
         hadException = true;
     }

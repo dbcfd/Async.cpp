@@ -10,7 +10,7 @@ namespace tasks {
 /**
  * Interface for managers, allowing replacement/mocks.
  */
-class ASYNC_CPP_TASKS_API IManager {
+class ASYNC_CPP_TASKS_API IManager : public std::enable_shared_from_this<IManager> {
 public:
     virtual ~IManager();
 

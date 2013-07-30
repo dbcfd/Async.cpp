@@ -41,7 +41,7 @@ public:
 protected:
     virtual void performSpecific() = 0;
     virtual void notifyCancel();
-    virtual void notifyException(const std::exception& ex);
+    virtual void notifyException(std::exception_ptr ex);
 
 private:
     Task(const Task& other);
