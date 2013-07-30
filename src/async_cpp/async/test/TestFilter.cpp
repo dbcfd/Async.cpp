@@ -31,34 +31,22 @@ TEST(FILTER_TEST, BASIC)
         return a % 2 == 0;
     };
 
-    auto finishOp = [](OpResult<std::vector<int>>&& result, Filter<int>::callback_t cb) -> void {
-        if(result.wasError())
+    auto finishOp = [](std::exception_ptr ex, std::vector<int>&& results) -> void {
+        if(ex) std::rethrow_exception(ex);
+
+        bool filterCorrect = true;
+        for(auto val : results)
         {
-            cb(AsyncResult(result.error()));
+            filterCorrect = filterCorrect && ( val % 2 == 0);
         }
-        else
+        if(!(filterCorrect && results.size() == 5))
         {
-            bool filterCorrect = true;
-            auto results = result.move();
-            for(auto val : results)
-            {
-                filterCorrect = filterCorrect && ( val % 2 == 0);
-            }
-            if(filterCorrect && results.size() == 5)
-            {
-                cb(AsyncResult());
-            }
-            else
-            {
-                cb(AsyncResult(std::string("Filter incorrect")));
-            }
+            throw(std::runtime_error("Filter incorrect"));
         }
     };
 
-    AsyncResult result;
-    result = Filter<int>(manager, op, std::move(data)).then(finishOp).get();
-    EXPECT_TRUE(result.wasSuccessful());
+    auto result = Filter<int>(manager, op, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
     
-
     manager->shutdown();
 }

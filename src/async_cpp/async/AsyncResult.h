@@ -1,5 +1,7 @@
 #pragma once
-#include "async_cpp/async/IAsyncResult.h"
+#include "async_cpp/async/Async.h"
+
+#include <future>
 
 namespace async_cpp {
 namespace async {
@@ -8,40 +10,31 @@ namespace async {
  * Store the result of an asynchronous operation, either as an error or successful
  */
 //------------------------------------------------------------------------------
-class AsyncResult : public IAsyncResult {
+class AsyncResult {
 public:
     /**
-     * Create a result that was an error
-     * @param error String representing error
+     * Create a result that was valid, and waiting on completion
      */
-    AsyncResult(std::string&& error);
+    AsyncResult(std::future<bool>&& mFuture);
     /**
-     * Create a result that was valid, but you don't wish to return a result
+     * Create a finished, successful, async result
      */
     AsyncResult();
-    /**
-     * Create a result by moving another result
-     */
-    AsyncResult(AsyncResult&& other);
-    /**
-     * Create a result by moving another result
-     */
-    AsyncResult& operator=(AsyncResult&& other);
     
     virtual ~AsyncResult();
 
     /**
-     * Check if this asynchronous result was successful, by throwing a runtime_error
+     * Check this asynchronous result. If failed, exception will be thrown.
      */
-    void check() const;
+    void check();
 
     /**
-     * Return whether this asynchronous result was successful.
+     * Check if this result is ready.
      */
-    bool wasSuccessful() const;
+    bool isReady() const;
 
 private:
-
+    std::shared_ptr<std::future<bool>> mFuture;
 };
 
 //inline implementations

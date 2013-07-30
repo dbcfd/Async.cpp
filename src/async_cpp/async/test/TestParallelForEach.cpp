@@ -17,10 +17,10 @@ TEST(PARALLEL_FOREACH_TEST, BASIC)
     auto manager(std::make_shared<tasks::AsioManager>(5));
     std::vector<std::shared_ptr<std::chrono::high_resolution_clock::time_point>> times(6);
 
-    auto func = [&times](size_t& index, ParallelForEach<size_t, result_t>::callback_t cb)->void {
+    auto func = [&times](const size_t& index, ParallelForEach<size_t, result_t>::callback_t cb)->void {
         auto now = std::chrono::high_resolution_clock::now();
         times[index] = std::make_shared<std::chrono::high_resolution_clock::time_point>(now);
-        cb(OpResult<result_t>(std::move(now)));
+        cb(std::move(now));
     };
 
     std::vector<size_t> data;
@@ -33,27 +33,18 @@ TEST(PARALLEL_FOREACH_TEST, BASIC)
     ParallelForEach<size_t, result_t> parallel(manager, func, std::move(data));
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, &maxDur](OpResult<ParallelForEach<size_t, result_t>::result_set_t>&& result, ParallelForEach<size_t, result_t>::complete_t cb)->void {
-        if(result.wasError())
+    auto result = parallel.then([&times, &maxDur](std::exception_ptr ex, std::vector<result_t>&& results)->void {
+        if(ex) std::rethrow_exception(ex);
+
+        for(auto& tp : results)
         {
-            cb(AsyncResult(result.error()));
-        }
-        else
-        {
-            auto results = result.move();
-            for(auto& tp : results)
-            {
-                auto dur = std::chrono::high_resolution_clock::now() - tp.throwOrMove();
-                maxDur = std::max(maxDur, dur);
-            }
-            cb(AsyncResult());
+            auto dur = std::chrono::high_resolution_clock::now() - tp;
+            maxDur = std::max(maxDur, dur);
         }
     } );
 
-    AsyncResult asyncResult;
-    ASSERT_NO_THROW(asyncResult = future.get());
+    ASSERT_NO_THROW(result.check());
     auto totalDur = std::chrono::high_resolution_clock::now() - start;
-    EXPECT_TRUE(asyncResult.wasSuccessful());
 
     ASSERT_GE(totalDur, maxDur);
 

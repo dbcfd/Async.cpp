@@ -8,14 +8,14 @@ namespace async {
  * Perform an operation in parallel for a number of times, optionally calling a function to examine all results once parallel 
  * operations are complete. Each task will be passed an index as data.
  */
-template<class TDATA, class TRESULT=TDATA>
+//------------------------------------------------------------------------------
+template<class TDATA>
 class ParallelFor {
 public:
-    typedef typename std::function<void(const size_t, typename detail::ParallelTask<TDATA, TRESULT>::callback_t)> operation_t;
-    typedef typename typename detail::ParallelTask<TDATA, TRESULT>::callback_t callback_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::callback_t complete_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::then_t then_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::result_set_t result_set_t;
+    typedef typename std::function<void(const size_t, typename detail::ParallelTask<TDATA>::callback_t)> operation_t;
+    typedef typename typename detail::ParallelTask<TDATA>::callback_t callback_t;
+    typedef typename typename detail::ParallelCollectTask<TDATA>::then_t then_t;
+    typedef typename typename detail::ParallelCollectTask<TDATA>::result_set_t result_set_t;
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
@@ -29,9 +29,9 @@ public:
     /**
      * Run the operation across the set of data, invoking a task with the result of the data
      * @param onFinishTask Task to run when operation has been applied to all data
-     * @return Future indicating when all operations (including onFinishTask) are complete
+     * @return AsyncResult that holds a future completion status, either successful or exception
      */
-    std::future<AsyncResult> then(typename then_t);
+    AsyncResult then(typename then_t);
 
     /**
      * Cancel outstanding tasks
@@ -41,14 +41,14 @@ public:
 private:
     typename operation_t mOp;
     tasks::ManagerPtr mManager;
-    std::vector<std::shared_ptr<detail::IParallelTask>> mTasks;
+    std::vector<std::shared_ptr<detail::IParallelTask<TDATA>>> mTasks;
     size_t mNbTimes;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelFor<TDATA, TRESULT>::ParallelFor(tasks::ManagerPtr manager, 
+template<class TDATA>
+ParallelFor<TDATA>::ParallelFor(tasks::ManagerPtr manager, 
         typename operation_t op, 
         const size_t nbTimes)
     : mManager(manager), mOp(op), mNbTimes(nbTimes)
@@ -59,28 +59,28 @@ ParallelFor<TDATA, TRESULT>::ParallelFor(tasks::ManagerPtr manager,
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-std::future<AsyncResult> ParallelFor<TDATA, TRESULT>::then(typename detail::ParallelCollectTask<TRESULT>::then_t onFinishOp )
+template<class TDATA>
+AsyncResult ParallelFor<TDATA>::then(typename detail::ParallelCollectTask<TDATA>::then_t onFinishOp )
 {
-    auto terminalTask(std::make_shared<detail::ParallelCollectTask<TRESULT>>(mManager, mNbTimes, onFinishOp));
+    auto terminalTask(std::make_shared<detail::ParallelCollectTask<TDATA>>(mManager, mNbTimes, onFinishOp));
     mTasks.reserve(mNbTimes + 1);
     mTasks.emplace_back(terminalTask);
 
-    auto future = terminalTask->future();
+    auto result = terminalTask->result();
 
     for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
         auto op = std::bind(mOp, idx, std::placeholders::_1);
-        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TDATA, TRESULT>>(mManager, op, idx, terminalTask));
+        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TDATA>>(mManager, op, idx, terminalTask));
         mManager->run(mTasks.back());
     }
 
-    return future;   
+    return result;   
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelFor<TDATA, TRESULT>::cancel()
+template<class TDATA>
+void ParallelFor<TDATA>::cancel()
 {
     for(auto task : mTasks)
     {

@@ -16,46 +16,36 @@ TEST(SERIES_TEST, BASIC)
     auto manager(std::make_shared<tasks::AsioManager>(5));
 
     Series<size_t>::operation_t opsArray[] = {
-        [](OpResult<size_t>&&, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(0));
+        [](std::exception_ptr, size_t*, Series<size_t>::callback_t cb)-> void {
+            cb(0);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         }
     };
 
-    auto future = Series<size_t>(manager, opsArray, 5).then(
-        [](OpResult<size_t>&& result, Series<size_t>::complete_t cb)-> void {
-            if(result.wasError())
-            {
-                cb(AsyncResult(result.error()));
-            }
-            else
-            {
-                auto wasSuccessful = (4 == result.move());
-                if(wasSuccessful)
-                {
-                    cb(AsyncResult());
-                }
-                else
-                {
-                    cb(AsyncResult(std::string("Series failed")));
-                }
-            }
-        } );
+    AsyncResult result;
+    ASSERT_NO_THROW(result = Series<size_t>(manager, opsArray, 5).then(
+        [](std::exception_ptr ex, size_t* prev)-> void {
+            if(ex) std::rethrow_exception(ex);
+            auto wasSuccessful = (4 == *prev);
+            if(!wasSuccessful) throw(std::runtime_error("Series failed"));
+        } ) );
 
-    AsyncResult asyncResult;
-    ASSERT_NO_THROW(asyncResult = future.get());
-    EXPECT_TRUE(asyncResult.wasSuccessful());
+    EXPECT_NO_THROW(result.check());
 
     manager->shutdown();
 }
@@ -65,48 +55,38 @@ TEST(SERIES_TEST, INTERRUPT)
     auto manager(std::make_shared<tasks::AsioManager>(5));
 
     Series<size_t>::operation_t opsArray[] = {
-        [](OpResult<size_t>&&, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(0));
+        [](std::exception_ptr, size_t*, Series<size_t>::callback_t cb)-> void {
+            cb(0);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         }
     };
 
-    auto future = Series<size_t>(manager, opsArray, 5).then(
-        [](OpResult<size_t>&& result, Series<size_t>::complete_t cb)-> void {
-            if(result.wasError())
-            {
-                cb(AsyncResult(result.error()));
-            }
-            else
-            {
-                auto wasSuccessful = (4 == result.move());
-                if(wasSuccessful)
-                {
-                    cb(AsyncResult());
-                }
-                else
-                {
-                    cb(AsyncResult(std::string("Series failed")));
-                }
-            }
-        } );
+    AsyncResult result;
+    ASSERT_NO_THROW(result = Series<size_t>(manager, opsArray, 5).then(
+        [](std::exception_ptr ex, size_t* prev)-> void {
+            if(ex) std::rethrow_exception(ex);
+            auto wasSuccessful = (4 == *prev);
+            if(!wasSuccessful) throw(std::runtime_error("Series failed"));
+        } ) );
 
     manager->shutdown();
 
-    AsyncResult asyncResult;
-    ASSERT_NO_THROW(asyncResult = future.get());
-    EXPECT_FALSE(asyncResult.wasSuccessful());
+    EXPECT_THROW(result.check(), std::runtime_error);
 }
 
 TEST(SERIES_TEST, TIMING)
@@ -116,10 +96,11 @@ TEST(SERIES_TEST, TIMING)
 
     std::vector<data_t> times;
     times.reserve(6);
-    auto func = [&times](OpResult<data_t>&&, Series<data_t>::callback_t callback)->void {
+    auto func = [&times](std::exception_ptr ex, data_t*, Series<data_t>::callback_t callback)->void {
+        if(ex) std::rethrow_exception(ex);
         auto time = std::chrono::high_resolution_clock::now();
         times.emplace_back(time); //no need to worry about locking since we're running serially
-        callback(OpResult<data_t>(std::move(time)));
+        callback(std::move(time));
     };
 
     Series<data_t>::operation_t opsArray[] = {
@@ -132,21 +113,12 @@ TEST(SERIES_TEST, TIMING)
 
     Series<data_t> series(manager, opsArray, 5);
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = series.then([&times, &start](OpResult<data_t>&& result, Series<data_t>::complete_t callback)->void {
-        if(result.wasError())
-        {
-            callback(AsyncResult(result.error()));
-        }
-        else
-        {
-            times.emplace_back(std::chrono::high_resolution_clock::now()); //no need to worry about locking since we're running serially
-            callback(AsyncResult());
-        }
+    auto result = series.then([&times, &start](std::exception_ptr ex, data_t*)->void {
+        if(ex) std::rethrow_exception(ex);
+        times.emplace_back(std::chrono::high_resolution_clock::now()); //no need to worry about locking since we're running serially
     } );
 
-    AsyncResult asyncResult;
-    ASSERT_NO_THROW(asyncResult = future.get());
-    EXPECT_TRUE(asyncResult.wasSuccessful());
+    EXPECT_NO_THROW(result.check());
 
     auto last = times[0];
 

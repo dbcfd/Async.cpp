@@ -11,13 +11,13 @@ namespace async {
  * Run a set of tasks in series using a manager, optionally executing a task when the set of parallel tasks is complete.
  * A future is created which indicates when this set of operations (including optional completion task) is completed.
  */
+//------------------------------------------------------------------------------
 template<class TDATA>
 class Series {
 public:
     typedef typename typename detail::SeriesTask<TDATA>::operation_t operation_t;
     typedef typename typename detail::SeriesTask<TDATA>::callback_t callback_t;
     typedef typename typename detail::SeriesCollectTask<TDATA>::then_t then_t;
-    typedef typename typename detail::SeriesCollectTask<TDATA>::callback_t complete_t;
     /**
      * Create a series task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
@@ -35,11 +35,11 @@ public:
         typename operation_t ops[], const size_t nbOps);
 
     /**
-     * Run the set of tasks in series, calling a task when the series tasks have completed.
-     * @param onFinishTask Task to run when series tasks are complete
-     * @return Future indicating when all operations (including onFinishTask) are complete
+     * Run the operation across the set of data, invoking a task with the result of the data
+     * @param onFinishTask Task to run when operation has been applied to all data
+     * @return AsyncResult that holds a future completion status, either successful or exception
      */
-    std::future<AsyncResult> then(typename then_t onFinishTask);
+    AsyncResult then(typename then_t onFinishTask);
 
     /**
      * Cancel outstanding tasks
@@ -75,13 +75,13 @@ Series<TDATA>::Series(tasks::ManagerPtr manager, typename detail::SeriesTask<TDA
 
 //------------------------------------------------------------------------------
 template<class TDATA>
-std::future<AsyncResult> Series<TDATA>::then(typename detail::SeriesCollectTask<TDATA>::then_t onFinishOp)
+AsyncResult Series<TDATA>::then(typename detail::SeriesCollectTask<TDATA>::then_t onFinishOp)
 {
     auto finishTask(std::make_shared<detail::SeriesCollectTask<TDATA>>(mManager, onFinishOp));
     mTasks.reserve(mOperations.size() + 1);
     mTasks.emplace_back(finishTask);
 
-    auto result = finishTask->future();
+    auto result = finishTask->result();
 
     std::shared_ptr<detail::ISeriesTask<TDATA>> nextTask = finishTask;
     for(auto iter = mOperations.rbegin(); iter != mOperations.rend(); ++iter)

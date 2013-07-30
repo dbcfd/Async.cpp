@@ -1,6 +1,8 @@
 #pragma once
 #include "async_cpp/async/detail/ParallelCollectTask.h"
 
+#include <boost/variant.hpp>
+
 namespace async_cpp {
 namespace async {
 namespace detail {
@@ -8,10 +10,11 @@ namespace detail {
 /**
  * Parallel running task
  */
-template<class TDATA, class TRESULT=TDATA>
-class ParallelTask : public IParallelTask {
+//------------------------------------------------------------------------------
+template<class TRESULT>
+class ParallelTask : public IParallelTask<TRESULT> {
 public:
-    typedef typename std::function<void(OpResult<TRESULT>&&)> callback_t;
+    typedef typename std::function<void(typename VariantType&&)> callback_t;
     typedef typename std::function<void(callback_t)> operation_t;
 
     ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
@@ -23,55 +26,79 @@ public:
 protected:
     virtual void performSpecific() final;
     virtual void notifyCancel() final;
-    virtual void notifyException(const std::exception& ex) final;
+    virtual void notifyException(std::exception_ptr ex) final;
 
 private:
-    typename operation_t mGenerateResultFunc;
+    virtual void attemptOperation(std::function<void(void)> func) final;
+
     std::shared_ptr<ParallelCollectTask<TRESULT>> mCollectTask;
+    typename operation_t mGenerateResultFunc;
     size_t mTaskOrder;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelTask<TDATA, TRESULT>::ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
+template<class TRESULT>
+ParallelTask<TRESULT>::ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
         typename operation_t generateResult,
         const size_t taskOrder,
         std::shared_ptr<ParallelCollectTask<TRESULT>> collectTask)
-    : IParallelTask(mgr), mGenerateResultFunc(std::move(generateResult)), mCollectTask(collectTask), mTaskOrder(taskOrder)
+    : IParallelTask(mgr), mGenerateResultFunc(generateResult), mCollectTask(collectTask), mTaskOrder(taskOrder)
 {
     if(!mCollectTask) { throw(std::invalid_argument("ParallelTask: No collect task")); }
+
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-ParallelTask<TDATA, TRESULT>::~ParallelTask()
+template<class TRESULT>
+ParallelTask<TRESULT>::~ParallelTask()
 {
 
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelTask<TDATA, TRESULT>::performSpecific()
+template<class TRESULT>
+void ParallelTask<TRESULT>::performSpecific()
 {
-    auto callback = [this](OpResult<TRESULT>&& result)->void {
+    auto callback = [this](typename VariantType&& result)->void {
         mCollectTask->notifyCompletion(mTaskOrder, std::move(result));
     };
-    mGenerateResultFunc(callback);
+    attemptOperation([callback, this]()->void {
+        mGenerateResultFunc(callback);
+    } );
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelTask<TDATA, TRESULT>::notifyCancel()
+template<class TRESULT>
+void ParallelTask<TRESULT>::attemptOperation(std::function<void(void)> func)
 {
-    mCollectTask->notifyCompletion(mTaskOrder, OpResult<TRESULT>(std::string("Cancelled")));
+    try
+    {
+        func();
+    }
+    catch(...)
+    {
+        mCollectTask->notifyCompletion(mTaskOrder, std::current_exception());
+    }
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA, class TRESULT>
-void ParallelTask<TDATA, TRESULT>::notifyException(const std::exception& ex)
+template<class TRESULT>
+void ParallelTask<TRESULT>::notifyCancel()
 {
-    mCollectTask->notifyCompletion(mTaskOrder, OpResult<TRESULT>(std::string(ex.what())));
+    mCollectTask->cancel();
+    attemptOperation([]()->void {
+        throw(std::runtime_error("Cancelled"));
+    } );
+}
+
+//------------------------------------------------------------------------------
+template<class TRESULT>
+void ParallelTask<TRESULT>::notifyException(std::exception_ptr ex)
+{
+    attemptOperation([ex]()->void {
+        std::rethrow_exception(ex);
+    } );
 }
 
 }

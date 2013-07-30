@@ -23,39 +23,28 @@ TEST(MAP_TEST, BASIC)
     data.emplace_back(4);
     data.emplace_back(5);
     
-    auto mapOp = [](int& a) -> result_t {
+    auto mapOp = [](const int& a) -> result_t {
         return std::make_pair(a, a*a);
     };
 
-    auto finishOp = [](OpResult<std::vector<result_t>>&& result, Map<int, result_t>::callback_t cb)->void
+    auto finishOp = [](std::exception_ptr ex, std::vector<result_t>&& results)->void
     {
-        if(result.wasError())
+        if(ex) std::rethrow_exception(ex);
+        
+        bool successful = true;
+        for(size_t i = 0; i < results.size(); ++i)
         {
-            cb(AsyncResult(result.error()));
+            auto val = i+1;
+            successful = successful && ( val == results[i].first && val*val == results[i].second);
         }
-        else
+        if(!successful)
         {
-            bool successful = true;
-            auto results = result.move();
-            for(size_t i = 0; i < results.size(); ++i)
-            {
-                auto val = i+1;
-                successful = successful && ( val == results[i].first && val*val == results[i].second);
-            }
-            if(successful)
-            {
-                cb(AsyncResult());
-            }
-            else
-            {
-                cb(AsyncResult(std::string("Match failure")));
-            }
+            throw(std::runtime_error("Match failure"));
         }
     };
 
-    AsyncResult result;
-    result = Map<int, result_t>(manager, mapOp, std::move(data)).then(finishOp).get();
-    EXPECT_TRUE(result.wasSuccessful());
+    auto result = Map<int, result_t>(manager, mapOp, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
 
     manager->shutdown();
 }

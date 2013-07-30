@@ -8,71 +8,73 @@ namespace detail {
 /**
  * Task which continues a chain of asynchronous tasks.
  */
-template<class TDATA>
-class SeriesTask : public ISeriesTask<TDATA> {
+template<class TRESULT>
+class SeriesTask : public ISeriesTask<TRESULT> {
 public:
-    typedef typename std::function<void(OpResult<TDATA>&&)> callback_t;
-    typedef typename std::function<void(OpResult<TDATA>&&, typename callback_t)> operation_t;
+    typedef typename std::function<void(typename VariantType&&)> callback_t;
+    typedef typename std::function<void(std::exception_ptr, TRESULT*, typename callback_t)> operation_t;
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
      * @param generateResult packaged_task that will produce the AsyncResult
      */
     SeriesTask(std::weak_ptr<tasks::IManager> mgr, 
         typename operation_t generateResult,
-        std::shared_ptr<ISeriesTask<TDATA>> nextTask);    
+        std::shared_ptr<ISeriesTask<TRESULT>> nextTask);    
     virtual ~SeriesTask();
 
 protected:
-    virtual void notifyCancel() final;
-    virtual void notifyException(const std::exception& ex) final;
     virtual void performSpecific() final;
 
 private:
-    std::shared_ptr<ISeriesTask<TDATA>> mNextTask;
+    virtual void attemptOperation(std::function<void(void)> op) final;
+
+    std::shared_ptr<ISeriesTask<TRESULT>> mNextTask;
     typename operation_t mGenerateResultFunc;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA>
-SeriesTask<TDATA>::SeriesTask(std::weak_ptr<tasks::IManager> mgr, 
+template<class TRESULT>
+SeriesTask<TRESULT>::SeriesTask(std::weak_ptr<tasks::IManager> mgr, 
         typename operation_t generateResult,
-        std::shared_ptr<ISeriesTask<TDATA>> nextTask)
-    : ISeriesTask<TDATA>(mgr), mNextTask(nextTask), mGenerateResultFunc(generateResult)
+        std::shared_ptr<ISeriesTask<TRESULT>> nextTask)
+    : ISeriesTask<TRESULT>(mgr), mNextTask(nextTask), mGenerateResultFunc(generateResult)
 {
     if(!mNextTask) { throw(std::runtime_error("SeriesTask: No next task")); }
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-SeriesTask<TDATA>::~SeriesTask()
+template<class TRESULT>
+SeriesTask<TRESULT>::~SeriesTask()
 {
 
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-void SeriesTask<TDATA>::performSpecific()
+template<class TRESULT>
+void SeriesTask<TRESULT>::performSpecific()
 {
-    auto callback = [this](OpResult<TDATA>&& result)->void {
+    auto callback = [this](typename VariantType&& result)->void {
         mNextTask->begin(std::move(result));
     };
 
-    mGenerateResultFunc(std::move(mPreviousResult), callback);
+    attemptOperation([this, callback]()->void {
+        mGenerateResultFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult), callback);
+    } );
 }
 
 //------------------------------------------------------------------------------
 template<class TDATA>
-void SeriesTask<TDATA>::notifyCancel()
+void SeriesTask<TDATA>::attemptOperation(std::function<void(void)> op)
 {
-    mNextTask->begin(OpResult<TDATA>(std::string("Cancelled")));
-}
-
-//------------------------------------------------------------------------------
-template<class TDATA>
-void SeriesTask<TDATA>::notifyException(const std::exception& ex)
-{
-    mNextTask->begin(OpResult<TDATA>(std::string(ex.what())));
+    try
+    {
+        op();
+    }
+    catch(...)
+    {
+        mNextTask->begin(std::current_exception());
+    }
 }
 
 }

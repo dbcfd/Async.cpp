@@ -20,42 +20,37 @@ TEST(PARALLEL_TEST, BASIC)
     Parallel<bool>::operation_t opsArray[] = {
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[0] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         }, 
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[1] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[2] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[3] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[4] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         }
     };
 
-    auto future = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](OpResult<Parallel<bool>::result_set_t>&& result, Parallel<bool>::complete_t cb)->void {
-            if(result.wasError())
-            {
-                cb(AsyncResult(result.error()));
-            }
-            else
-            {
-                taskRunOrder[5] = runCount;
-                cb(AsyncResult());
-            }
-        } );
-
     AsyncResult result;
-    ASSERT_NO_THROW(result = future.get());
-    EXPECT_TRUE(result.wasSuccessful());
+    ASSERT_NO_THROW(result = Parallel<bool>(manager, opsArray, 5).then(
+        [&taskRunOrder, &runCount](std::exception_ptr ex, std::vector<bool>&&)->void {
+            if(ex)
+            {
+                std::rethrow_exception(ex);
+            }
+            taskRunOrder[5] = runCount;
+        } ) );
+
+    EXPECT_NO_THROW(result.check());
 
     EXPECT_LE(5, runCount);
 
@@ -72,47 +67,39 @@ TEST(PARALLEL_TEST, INTERRUPT)
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[0] = runCount.fetch_add(1); 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         }, 
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[1] = runCount.fetch_add(1); 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[2] = runCount.fetch_add(1); 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[3] = runCount.fetch_add(1); 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         },
         [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
             taskRunOrder[4] = runCount.fetch_add(1); 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            cb(OpResult<bool>());
+            cb(AsyncResult());
         }
     };
 
-    auto future = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](OpResult<Parallel<bool>::result_set_t>&& results, Parallel<bool>::complete_t cb)->void{
-            if(results.wasError())
-            {
-                cb(AsyncResult(results.error()));
-            }
-            else
-            {
-                taskRunOrder[5] = runCount;
-                cb(AsyncResult());
-            }
-        } );
+    AsyncResult result;
+    EXPECT_NO_THROW(result = Parallel<bool>(manager, opsArray, 5).then(
+        [&taskRunOrder, &runCount](std::exception_ptr ex, std::vector<bool>&&)->void{
+            if(ex) std::rethrow_exception(ex);
+            taskRunOrder[5] = runCount;
+        } ) );
 
     manager->shutdown();
-    AsyncResult result;
-    ASSERT_NO_THROW(result = future.get());
-    EXPECT_TRUE(result.wasSuccessful());
+    EXPECT_THROW(result.check(), std::runtime_error);
 }
 
 TEST(PARALLEL_TEST, TIMING)
@@ -121,32 +108,26 @@ TEST(PARALLEL_TEST, TIMING)
     auto manager(std::make_shared<tasks::AsioManager>(5));
 
     auto func = [](Parallel<data_t>::callback_t cb)->void { 
-        cb(OpResult<data_t>(std::chrono::high_resolution_clock::now()));
+        cb(std::chrono::high_resolution_clock::now());
     };
 
     auto ops = std::vector<Parallel<data_t>::operation_t>(5, func);
 
     Parallel<data_t> parallel(manager, ops);
+    AsyncResult result;
     auto start = std::chrono::high_resolution_clock::now();
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
-    auto future = parallel.then([&start, &maxDur](OpResult<Parallel<data_t>::result_set_t>&& result, Parallel<data_t>::complete_t cb)->void {
-        if(result.wasError())
+    result = parallel.then([&start, &maxDur](std::exception_ptr ex, std::vector<data_t>&& results)->void {
+        if(ex)
         {
-            cb(AsyncResult(result.error()));
+            std::rethrow_exception(ex);
         }
-        else
+        for(auto& taskFinish : results)
         {
-            auto results = result.move();
-            for(auto& taskFinish : results)
-            {
-                maxDur = std::max(maxDur, taskFinish.throwOrMove() - start);
-            }
-            cb(AsyncResult());
+            maxDur = std::max(maxDur, taskFinish - start);
         }
     } );
-    AsyncResult result;
-    ASSERT_NO_THROW(result = future.get());
-    EXPECT_TRUE(result.wasSuccessful());
+    ASSERT_NO_THROW(result.check());
     auto totalDur = std::chrono::high_resolution_clock::now() - start;
 
     EXPECT_GE(totalDur, maxDur);

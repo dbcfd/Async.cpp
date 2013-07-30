@@ -7,12 +7,12 @@ namespace async {
 /**
  * Perform an operation in parallel against all data in a vector, optionally calling a function to examine all results once parallel operations are complete.
  */
+//------------------------------------------------------------------------------
 template<class TDATA, class TRESULT=TDATA>
 class ParallelForEach {
 public:
-    typedef typename std::function<void(TDATA&, typename detail::ParallelTask<TDATA, TRESULT>::callback_t)> operation_t;
-    typedef typename typename detail::ParallelTask<TDATA, TRESULT>::callback_t callback_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::callback_t complete_t;
+    typedef typename std::function<void(TDATA&, typename detail::ParallelTask<TRESULT>::callback_t)> operation_t;
+    typedef typename typename detail::ParallelTask<TRESULT>::callback_t callback_t;
     typedef typename typename detail::ParallelCollectTask<TRESULT>::then_t then_t;
     typedef typename typename detail::ParallelCollectTask<TRESULT>::result_set_t result_set_t;
     /**
@@ -27,9 +27,9 @@ public:
     /**
      * Run the operation across the set of data, invoking a task with the result of the data
      * @param onFinishTask Task to run when operation has been applied to all data
-     * @return Future indicating when all operations (including onFinishTask) are complete
+     * @return AsyncResult that holds a future completion status, either successful or exception
      */
-    std::future<AsyncResult> then(typename then_t onFinishTask);
+    AsyncResult then(typename then_t onFinishTask);
 
     /**
      * Cancel outstanding tasks
@@ -39,7 +39,7 @@ public:
 private:
     typename operation_t mOp;
     tasks::ManagerPtr mManager;
-    std::vector<std::shared_ptr<detail::IParallelTask>> mTasks;
+    std::vector<std::shared_ptr<detail::IParallelTask<TRESULT>>> mTasks;
     std::vector<TDATA> mData;
 };
 
@@ -57,22 +57,22 @@ ParallelForEach<TDATA, TRESULT>::ParallelForEach(tasks::ManagerPtr manager,
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult> ParallelForEach<TDATA, TRESULT>::then(typename detail::ParallelCollectTask<TRESULT>::then_t onFinishOp)
+AsyncResult ParallelForEach<TDATA, TRESULT>::then(typename detail::ParallelCollectTask<TRESULT>::then_t onFinishOp)
 {
     auto terminalTask(std::make_shared<detail::ParallelCollectTask<TRESULT>>(mManager, mData.size(), onFinishOp));
     mTasks.reserve(mData.size() + 1);
     mTasks.emplace_back(terminalTask);
 
-    auto future = terminalTask->future();
+    auto result = terminalTask->result();
 
     for(size_t i = 0; i < mData.size(); ++i)
     {
-        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TDATA, TRESULT>>(mManager, std::bind(mOp, std::move(mData[i]), std::placeholders::_1), i, terminalTask));
+        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TRESULT>>(mManager, std::bind(mOp, std::move(mData[i]), std::placeholders::_1), i, terminalTask));
         mManager->run(mTasks.back());
     }
     mData.clear();
 
-    return future;
+    return result;
 }
 
 //------------------------------------------------------------------------------

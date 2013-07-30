@@ -21,43 +21,31 @@ TEST(PARALLEL_FOR_TEST, BASIC)
     auto func = [&times](size_t index, ParallelFor<data_t>::callback_t cb)->void {
         auto now = std::chrono::high_resolution_clock::now();
         times[index] = std::make_shared<data_t>(now);
-        cb(OpResult<data_t>(std::move(now)));
+        cb(std::move(now));
     };
 
     ParallelFor<data_t> parallel(manager, func, 5);
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, maxDur, this](OpResult<ParallelFor<data_t>::result_set_t>&& result, ParallelFor<data_t>::complete_t cb)->void {
-        if(result.wasError())
+    auto result = parallel.then([&times, maxDur, this](std::exception_ptr ex, std::vector<data_t>&& results)->void {
+        if(ex) std::rethrow_exception(ex);
+
+        for(size_t i = 0; i < results.size(); ++i)
         {
-            cb(AsyncResult(result.error()));
-        }
-        else
-        {
-            auto results = result.move();
-            for(size_t i = 0; i < results.size(); ++i)
+            auto& tp = results[i];
+            auto prev = times[i];
+            if(!prev)
             {
-                auto& tp = results[i];
-                auto prev = times[i];
-                if(!prev)
-                {
-                    cb(AsyncResult(std::string("No previous time")));
-                    return;
-                }
-                if(*prev != tp.throwOrMove())
-                {
-                    cb(AsyncResult(std::string("Time mismatch")));
-                    return;
-                }
+                throw(std::runtime_error("No previous time"));
             }
-            cb(AsyncResult());
+            if(*prev != tp)
+            {
+                throw(std::runtime_error("Time mismatch"));
+            }
         }
     } );
 
-    AsyncResult asyncResult;
-    ASSERT_NO_THROW(asyncResult = future.get());
-    EXPECT_TRUE(asyncResult.wasSuccessful());
-    auto totalDur = std::chrono::high_resolution_clock::now() - start;
+    ASSERT_NO_THROW(result.check());
 
     manager->shutdown();
 }

@@ -1,51 +1,78 @@
 #pragma once
-#include "async_cpp/async/OpResult.h"
-
-#include "async_cpp/tasks/IManager.h"
-#include "async_cpp/tasks/Task.h"
+#include "async_cpp/async/detail/IAsyncTask.h"
 
 namespace async_cpp {
 namespace async {
 namespace detail {
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-class ISeriesTask : public tasks::Task {
+template<class T>
+class ISeriesTask : public IAsyncTask<T> {
 public:
     ISeriesTask(std::weak_ptr<tasks::IManager> mgr);
     virtual ~ISeriesTask();
 
-    void begin(OpResult<TDATA>&& result);
+    void begin(typename VariantType&& result);
 
 protected:
     ISeriesTask(const ISeriesTask& other);
 
-    std::weak_ptr<tasks::IManager> mManager;
-    OpResult<TDATA> mPreviousResult;
+    virtual void notifyCancel() final;
+    virtual void notifyException(std::exception_ptr ex) final;
+
+    typename VariantType mPreviousResult;
+    bool mValid;
 };
 
 //inline implementations
 //------------------------------------------------------------------------------
-template<class TDATA>
-ISeriesTask<TDATA>::ISeriesTask(std::weak_ptr<tasks::IManager> mgr)
-    : Task(), mManager(mgr)
+template<class T>
+ISeriesTask<T>::ISeriesTask(std::weak_ptr<tasks::IManager> mgr)
+    : IAsyncTask(mgr), mValid(true)
 {
     
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-ISeriesTask<TDATA>::~ISeriesTask()
+template<class T>
+ISeriesTask<T>::~ISeriesTask()
 {
     
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-void ISeriesTask<TDATA>::begin(OpResult<TDATA>&& result)
+template<class T>
+void ISeriesTask<T>::begin(typename VariantType&& result)
 {
     mPreviousResult = std::move(result);
-    mManager.lock()->run(shared_from_this());
+    if(mValid)
+    {
+        mManager.lock()->run(shared_from_this());
+    }
+    else
+    {
+        cancel();
+    }
+}
+
+//------------------------------------------------------------------------------
+template<class T>
+void ISeriesTask<T>::notifyCancel()
+{
+    mValid = false;
+    attemptOperation([]()->void {
+        throw(std::runtime_error("Cancelled"));
+    } );
+}
+
+//------------------------------------------------------------------------------
+template<class T>
+void ISeriesTask<T>::notifyException(std::exception_ptr ex)
+{
+    mValid = false;
+    attemptOperation([ex]()->void {
+        std::rethrow_exception(ex);
+    } );
 }
 
 }

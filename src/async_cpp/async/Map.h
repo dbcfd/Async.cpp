@@ -10,12 +10,12 @@ namespace async {
 /**
  * Filter a set of data using a criteria
  */
+//------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
 class Map {
 public:
-    typedef typename std::function<OpResult<TRESULT>(TDATA&)> map_op_t;
-    typedef typename ParallelForEach<TDATA>::complete_t callback_t;
-    typedef std::function<void(OpResult<std::vector<TRESULT>>&&, typename Map<TDATA, TRESULT>::callback_t)> then_t;
+    typedef typename std::function<TRESULT(const TDATA&)> map_op_t;
+    typedef typename ParallelForEach<TDATA, TRESULT>::then_t then_t;
     /**
      * Create a filter operation that will filter a set of data based on an operation.
      * @param manager Manager to use with filter operation
@@ -30,7 +30,7 @@ public:
      * Run the operation across the set of data, invoking a task with the mapped results
      * @param afterMap Function to invoke when map operation is complete, receiving mapped data
      */
-    std::future<AsyncResult> then(typename then_t afterMap);
+    AsyncResult then(typename then_t afterMap);
 
     /**
      * Cancel any outstanding operations.
@@ -57,33 +57,14 @@ Map<TDATA, TRESULT>::Map(tasks::ManagerPtr manager,
 
 //------------------------------------------------------------------------------
 template<class TDATA, class TRESULT>
-std::future<AsyncResult> Map<TDATA, TRESULT>::then(typename then_t afterMap)
+AsyncResult Map<TDATA, TRESULT>::then(typename then_t afterMap)
 {
-    auto op = [this](TDATA& value, typename ParallelForEach<TDATA, TRESULT>::callback_t cb) -> void {
-        cb(OpResult<TRESULT>(mOp(value)));
+    auto mapOpCopy(mOp);
+    auto op = [mapOpCopy](const TDATA& value, typename ParallelForEach<TRESULT>::callback_t cb) -> void {
+        cb(mapOpCopy(value));
     };
     mParallel = std::make_shared<ParallelForEach<TDATA, TRESULT>>(mManager, op, std::move(mData));
-    return mParallel->then(
-        [afterMap](OpResult<typename ParallelForEach<TDATA,TRESULT>::result_set_t>&& result, 
-                    typename callback_t callback)->void 
-        {
-            if(result.wasError())
-            {
-                afterMap(OpResult<std::vector<TRESULT>>(result.error()), callback);
-            }
-            else
-            {
-                std::vector<TRESULT> mappedResults;
-                auto results = result.move();
-                mappedResults.reserve(results.size());
-                for(auto& mappedResult : results)
-                {
-                    mappedResults.emplace_back(mappedResult.move());
-                }
-                results.clear();
-                afterMap(OpResult<std::vector<TRESULT>>(std::move(mappedResults)), callback);
-            }
-        } );
+    return mParallel->then(afterMap);
 }
 
 //------------------------------------------------------------------------------

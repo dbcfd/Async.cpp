@@ -7,12 +7,12 @@ namespace async {
 /**
  * Filter a set of data using a criteria
  */
+//------------------------------------------------------------------------------
 template<class TDATA>
 class Filter {
 public:
     typedef typename std::function<bool(const TDATA&)> filter_t;
-    typedef typename ParallelForEach<TDATA>::complete_t callback_t;
-    typedef std::function<void(OpResult<std::vector<TDATA>>&&, typename Filter<TDATA>::callback_t)> then_t;
+    typedef typename ParallelForEach<TDATA>::then_t then_t;
     /**
      * Create a filter operation that will filter a set of data based on an operation.
      * @param manager Manager to use with filter operation
@@ -27,7 +27,7 @@ public:
      * Run the operation across the set of data, invoking a task with the filtered results
      * @param onFilter Function to invoke when filter operation is complete, receiving filtered data
      */
-    std::future<AsyncResult> then(typename then_t onFilter);
+    AsyncResult then(typename then_t onFilter);
 
     /**
      * Cancel any outstanding operations.
@@ -54,43 +54,21 @@ Filter<TDATA>::Filter(tasks::ManagerPtr manager,
 
 //------------------------------------------------------------------------------
 template<class TDATA>
-std::future<AsyncResult> Filter<TDATA>::then(typename then_t onFilter)
+AsyncResult Filter<TDATA>::then(typename then_t onFilter)
 {
-    auto op = [this](TDATA& value, typename detail::ParallelTask<TDATA>::callback_t callback) -> void {
-        if(mOp(value))
+    auto filterOpCopy(mOp);
+    auto op = [filterOpCopy](TDATA& value, typename detail::ParallelTask<TDATA>::callback_t callback) -> void {
+        if(filterOpCopy(value))
         {
-            callback(OpResult<TDATA>(std::move(value)));
+            callback(std::move(value));
         }
         else
         {
-            callback(OpResult<TDATA>());
+            callback(AsyncResult());
         }
     };
     mParallel = std::make_shared<ParallelForEach<TDATA>>(mManager, op, std::move(mData));
-    return mParallel->then(
-        [onFilter](OpResult<typename ParallelForEach<TDATA>::result_set_t>&& result, 
-                    callback_t callback)->void
-    {
-        if(result.wasError())
-        {
-            onFilter(OpResult<std::vector<TDATA>>(result.error()), callback);
-        }
-        else
-        {
-            std::vector<TDATA> filteredResults;
-            auto results = result.move();
-            filteredResults.reserve(results.size());
-            for(auto& filteredResult : results)
-            {
-                if(filteredResult.hasData())
-                {
-                    filteredResults.emplace_back(filteredResult.move());
-                }
-            }
-            filteredResults.shrink_to_fit();
-            onFilter(OpResult<std::vector<TDATA>>(std::move(filteredResults)), callback);
-        }
-    } );
+    return mParallel->then(onFilter);
 }
 
 //------------------------------------------------------------------------------

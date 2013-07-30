@@ -4,29 +4,20 @@ namespace async_cpp {
 namespace async {
 
 //------------------------------------------------------------------------------
-AsyncResult::AsyncResult(std::string&& error) : IAsyncResult(std::move(error))
+AsyncResult::AsyncResult(std::future<bool>&& future) 
+    : mFuture(std::make_shared<std::future<bool>>(std::move(future)))
 {
 
 }
 
 //------------------------------------------------------------------------------
-AsyncResult::AsyncResult() : IAsyncResult()
+AsyncResult::AsyncResult()
 {
-
+    std::promise<bool> promise;
+    mFuture = std::make_shared<std::future<bool>>(promise.get_future());
+    promise.set_value(true);
 }
 
-//------------------------------------------------------------------------------
-AsyncResult::AsyncResult(AsyncResult&& other) : IAsyncResult(std::move(other))
-{
-
-}
-
-//------------------------------------------------------------------------------
-AsyncResult& AsyncResult::operator=(AsyncResult&& other)
-{
-    IAsyncResult::operator=(std::move(other));
-    return *this;
-}
 
 //------------------------------------------------------------------------------
 AsyncResult::~AsyncResult()
@@ -35,15 +26,19 @@ AsyncResult::~AsyncResult()
 }
 
 //------------------------------------------------------------------------------
-void AsyncResult::check() const
+void AsyncResult::check()
 {
-    throwIfError();
+    mFuture->get();
 }
 
 //------------------------------------------------------------------------------
-bool AsyncResult::wasSuccessful() const
+bool AsyncResult::isReady() const
 {
-    return !wasError();
+#ifdef _MSC_VER //wait_for is broken in VC11 have to use MS specific _Is_ready
+    return mFuture->_Is_ready();
+#else
+    return (std::future_status::ready == mFuture->wait_for(std::chrono::milliseconds(0)));
+#endif
 }
 
 }

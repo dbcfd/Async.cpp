@@ -1,21 +1,27 @@
 set (TARGET Async)
 
 set(DETAIL_HEADERS
+	detail/IAsyncTask.h
     detail/IParallelTask.h
     detail/ISeriesTask.h
     detail/ParallelCollectTask.h
     detail/ParallelTask.h
+	detail/ReadyVisitor.h
     detail/SeriesCollectTask.h
     detail/SeriesTask.h
+	detail/ValueVisitor.h
 )
 
 set(DETAIL_SOURCES
+	detail/IAsyncTask.cpp
     detail/IParallelTask.cpp
     detail/ISeriesTask.cpp
     detail/ParallelCollectTask.cpp
     detail/ParallelTask.cpp
+	detail/ReadyVisitor.cpp
     detail/SeriesCollectTask.cpp
     detail/SeriesTask.cpp
+	detail/ValueVisitor.cpp
 )
 
 source_group("Header Files\\Detail" FILES ${DETAIL_HEADERS})
@@ -25,9 +31,7 @@ set(HEADERS
     Async.h
     AsyncResult.h
     Filter.h
-    IAsyncResult.h
     Map.h
-    OpResult.h
     Parallel.h
     ParallelFor.h
     ParallelForEach.h
@@ -38,9 +42,7 @@ set(HEADERS
 set(SOURCES
     AsyncResult.cpp
     Filter.cpp
-    IAsyncResult.cpp
     Map.cpp
-    OpResult.cpp
     Parallel.cpp
     ParallelFor.cpp
     ParallelForEach.cpp
@@ -48,7 +50,8 @@ set(SOURCES
     Unique.cpp
 )
 
-SET (DEPENDENCIES Tasks)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+SET (DEPENDENCIES Tasks ${Boost_LIBRARIES})
 
 add_library (${TARGET} ${LIBRARY_BUILD_TYPE} ${HEADERS} ${DETAIL_HEADERS} ${SOURCES} ${DETAIL_SOURCES}) 
 target_link_libraries (${TARGET} ${DEPENDENCIES})

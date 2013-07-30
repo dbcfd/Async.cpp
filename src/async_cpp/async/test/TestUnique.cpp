@@ -31,34 +31,23 @@ TEST(UNIQUE_TEST, BASIC)
         return a == b;
     };
 
-    auto finishOp = [](OpResult<std::vector<int>>&& result, Unique<int>::callback_t cb)->void {
-        if(result.wasError())
+    auto finishOp = [](std::exception_ptr ex, std::vector<int>&& results)->void {
+        if(ex) std::rethrow_exception(ex);
+
+        bool isUnique = true;
+        for(auto i = 0; i < results.size(); ++i)
         {
-            cb(AsyncResult(result.error()));
+            auto val = i+1;
+            isUnique = isUnique && (val == results[i]);
         }
-        else
+        if(!(isUnique && results.size() == 7))
         {
-            bool isUnique = true;
-            auto results = result.move();
-            for(auto i = 0; i < results.size(); ++i)
-            {
-                auto val = i+1;
-                isUnique = isUnique && (val == results[i]);
-            }
-            if(isUnique && results.size() == 7)
-            {
-                cb(AsyncResult());
-            }
-            else
-            {
-                cb(AsyncResult(std::string("not unique")));
-            }
+            throw(std::runtime_error("not unique"));
         }
     };
 
-    AsyncResult result;
-    result = Unique<int>(manager, equalOp, std::move(data)).then(finishOp).get();
-    EXPECT_TRUE(result.wasSuccessful());
+    auto result = Unique<int>(manager, equalOp, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
 
     manager->shutdown();
 }
