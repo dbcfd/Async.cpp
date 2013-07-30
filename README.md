@@ -41,74 +41,62 @@ Asynchronous library modeled after async.js
 Run a set of tasks in series, where the final result is passed to the completion function.
 
     Series<size_t>::operation_t opsArray[] = {
-        [](OpResult<size_t>&&, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(0));
+        [](std::exception_ptr, size_t*, Series<size_t>::callback_t cb)-> void {
+            cb(0);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         },
-        [](OpResult<size_t>&& result, Series<size_t>::callback_t cb)-> void {
-            cb(OpResult<size_t>(result.throwOrMove() + 1));
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
         }
     };
-    
-    auto future = Series<size_t>(manager, opsArray, 5).then(
-        [](OpResult<size_t>&& result, Series<size_t>::complete_t cb)-> void {
-            if(result.wasError())
-            {
-                cb(AsyncResult(result.error()));
-            }
-            else
-            {
-                auto wasSuccessful = (4 == result.move());
-                cb(AsyncResult());
-            }
-        } );
+
+    AsyncResult result;
+    ASSERT_NO_THROW(result = Series<size_t>(manager, opsArray, 5).then(
+        [](std::exception_ptr ex, size_t* prev)-> void 
+        {
+            if(ex) std::rethrow_exception(ex);
+            
+            auto wasSuccessful = (4 == *prev);
+            if(!wasSuccessful) throw(std::runtime_error("Series failed"));
+        } ) );
+
+    EXPECT_NO_THROW(result.check());
 		
 ### Parallel ###
 Run a set of tasks in parallel, where the final results are passed to the completion function
 
-    Parallel<bool>::operation_t opsArray[] = {
-        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
-            taskRunOrder[0] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
-        }, 
-        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
-            taskRunOrder[1] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
-        },
-        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
-            taskRunOrder[2] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
-        },
-        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
-            taskRunOrder[3] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
-        },
-        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
-            taskRunOrder[4] = runCount.fetch_add(1); 
-            cb(OpResult<bool>());
-        }
+    auto func = [](Parallel<data_t>::callback_t cb)->void { 
+        cb(std::chrono::high_resolution_clock::now());
     };
-    
-    auto future = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](OpResult<Parallel<bool>::result_set_t>&& result, Parallel<bool>::complete_t cb)->void {
-            if(result.wasError())
-            {
-                cb(AsyncResult(result.error()));
-            }
-            else
-            {
-                auto results = result.move();
-                cb(AsyncResult());
-            }
-        } );
+
+    auto ops = std::vector<Parallel<data_t>::operation_t>(5, func);
+
+    Parallel<data_t> parallel(manager, ops);
+    AsyncResult result;
+    auto start = std::chrono::high_resolution_clock::now();
+    auto maxDur = std::chrono::high_resolution_clock::duration::min();
+    result = parallel.then([&start, &maxDur](std::exception_ptr ex, std::vector<data_t>&& results)->void 
+    {
+        if(ex) std::rethrow_exception(ex);
+        
+        for(auto& taskFinish : results)
+        {
+            maxDur = std::max(maxDur, taskFinish - start);
+        }
+    } );
+    ASSERT_NO_THROW(result.check());
 	
 ### Parallel For ###
 Run an operation a set number of times in parallel, where the final results are passed to the completion function
@@ -116,21 +104,28 @@ Run an operation a set number of times in parallel, where the final results are 
     auto func = [&times](size_t index, ParallelFor<data_t>::callback_t cb)->void {
         auto now = std::chrono::high_resolution_clock::now();
         times[index] = std::make_shared<data_t>(now);
-        cb(OpResult<data_t>(std::move(now)));
+        cb(std::move(now));
     };
 
     ParallelFor<data_t> parallel(manager, func, 5);
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, maxDur, this](OpResult<ParallelFor<data_t>::result_set_t>&& result, ParallelFor<data_t>::complete_t cb)->void {
-        if(result.wasError())
+    auto result = parallel.then([&times, maxDur, this](std::exception_ptr ex, std::vector<data_t>&& results)->void 
+    {
+        if(ex) std::rethrow_exception(ex);
+
+        for(size_t i = 0; i < results.size(); ++i)
         {
-            cb(AsyncResult(result.error()));
-        }
-        else
-        {
-            auto results = result.move();
-            cb(AsyncResult());
+            auto& tp = results[i];
+            auto prev = times[i];
+            if(!prev)
+            {
+                throw(std::runtime_error("No previous time"));
+            }
+            if(*prev != tp)
+            {
+                throw(std::runtime_error("Time mismatch"));
+            }
         }
     } );
 	
@@ -140,7 +135,7 @@ Run an operation over a set of data, where the final results are passed to the c
     auto func = [&times](size_t& index, ParallelForEach<size_t, result_t>::callback_t cb)->void {
         auto now = std::chrono::high_resolution_clock::now();
         times[index] = std::make_shared<std::chrono::high_resolution_clock::time_point>(now);
-        cb(OpResult<result_t>(std::move(now)));
+        cb(std::move(now));
     };
 
     std::vector<size_t> data;
@@ -153,38 +148,19 @@ Run an operation over a set of data, where the final results are passed to the c
     ParallelForEach<size_t, result_t> parallel(manager, func, std::move(data));
     auto maxDur = std::chrono::high_resolution_clock::duration::min();
     auto start = std::chrono::high_resolution_clock::now();
-    auto future = parallel.then([&times, &maxDur](OpResult<ParallelForEach<size_t, result_t>::result_set_t>&& result, ParallelForEach<size_t, result_t>::complete_t cb)->void {
-        if(result.wasError())
+    auto result = parallel.then([&times, &maxDur](std::exception_ptr ex, std::vector<result_t>&& results)->void 
+    {
+        if(ex) std::rethrow_exception(ex);
+
+        for(auto& tp : results)
         {
-            cb(AsyncResult(result.error()));
-        }
-        else
-        {
-            auto results = result.move();
-            cb(AsyncResult());
+            auto dur = std::chrono::high_resolution_clock::now() - tp;
+            maxDur = std::max(maxDur, dur);
         }
     } );
-    
-### Map ###
-Run an operation over a set of data that converts an item to another item, where the final results are passed to the completiion function.
 
-    auto mapOp = [](int& a) -> result_t {
-        return std::make_pair(a, a*a);
-    };
-
-    auto finishOp = [](OpResult<std::vector<result_t>>&& result, Map<int, result_t>::callback_t cb)->void
-    {
-        if(result.wasError())
-        {
-            cb(AsyncResult(result.error()));
-        }
-        else
-        {
-            auto results = result.move();
-            cb(AsyncResult());
-        }
-    };
-    
+    ASSERT_NO_THROW(result.check());
+       
 ### Filter ###
 Filter a set of data based on some function, where the filtered results are passed to the completion function.
 
@@ -192,17 +168,49 @@ Filter a set of data based on some function, where the filtered results are pass
         return a % 2 == 0;
     };
 
-    auto finishOp = [](OpResult<std::vector<int>>&& result, Filter<int>::callback_t cb) -> void {
-        if(result.wasError())
+    auto finishOp = [](std::exception_ptr ex, std::vector<int>&& results) -> void 
+    {
+        if(ex) std::rethrow_exception(ex);
+
+        bool filterCorrect = true;
+        for(auto val : results)
         {
-            cb(AsyncResult(result.error()));
+            filterCorrect = filterCorrect && ( val % 2 == 0);
         }
-        else
+        if(!(filterCorrect && results.size() == 5))
         {
-            auto results = result.move();
-            cb(AsyncResult());
+            throw(std::runtime_error("Filter incorrect")));
         }
     };
+
+    auto result = Filter<int>(manager, op, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
+    
+### Map ###
+Run an operation over a set of data that converts an item to another item, where the final results are passed to the completiion function.
+
+    auto mapOp = [](const int& a) -> result_t {
+        return std::make_pair(a, a*a);
+    };
+
+    auto finishOp = [](std::exception_ptr ex, std::vector<result_t>&& results)->void
+    {
+        if(ex) std::rethrow_exception(ex);
+        
+        bool successful = true;
+        for(size_t i = 0; i < results.size(); ++i)
+        {
+            auto val = i+1;
+            successful = successful && ( val == results[i].first && val*val == results[i].second);
+        }
+        if(!successful)
+        {
+            throw(std::runtime_error("Match failure"));
+        }
+    };
+
+    auto result = Map<int, result_t>(manager, mapOp, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
     
 ### Unique ###
 Find a set of unique items in a set of data, based on some equality function. Unique items are passed to the completion function.
@@ -211,17 +219,23 @@ Find a set of unique items in a set of data, based on some equality function. Un
         return a == b;
     };
 
-    auto finishOp = [](OpResult<std::vector<int>>&& result, Unique<int>::callback_t cb)->void {
-        if(result.wasError())
+    auto finishOp = [](std::exception_ptr ex, std::vector<int>&& results)->void {
+        if(ex) std::rethrow_exception(ex);
+
+        bool isUnique = true;
+        for(auto i = 0; i < results.size(); ++i)
         {
-            cb(AsyncResult(result.error()));
+            auto val = i+1;
+            isUnique = isUnique && (val == results[i]);
         }
-        else
+        if(!(isUnique && results.size() == 7))
         {
-            auto results = result.move();
-            cb(AsyncResult());
+            throw(std::runtime_error("not unique")));
         }
     };
+
+    auto result = Unique<int>(manager, equalOp, std::move(data)).then(finishOp);
+    EXPECT_NO_THROW(result.check());
 
 ## Build Instructions ##
 Obtain a C++11 compatible compiler (VS2011, Gcc) and CMake 2.8.4 or higher. Run Cmake (preferably from the build directory).
@@ -231,10 +245,10 @@ See http://www.cmake.org for further instructions on CMake.
 ## Testing Instructions ##
 If flag BUILD_TESTS is enabled, google test based tests will be created for Tasks and Async. Alternative, RUN_TESTS project can be run.
 
-## Known Issues ##
+## Gotchas ##
+Each async function returns an AsyncResult. When combining multiple async functions (see TestOverload.cpp), you should not wait on the results of other async functions. AsyncResult's should always be moved into the callback, and async functions should never call check();
 
+## Known Issues
  * A large number of tasks which retain threads waiting for other threads to complete may cause a deadlock. 
-  * Issue related to any thread pooling/event looping system (both Manager and AsioManager)
-  * When possible, your tasks should not block, and instead return a std::future<AsyncResult<T>>. 
-  * The design accommodates for this behavior
-  * Manager and AsioManager have been tested against behavior similar to this, and it is not seen
+  * Issue related to any thread pooling/event looping system
+  * When possible, your tasks should not block, and instead invoke the callback using an AsyncResult
