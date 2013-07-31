@@ -17,6 +17,10 @@ public:
      */
     AsyncResult(std::future<bool>&& mFuture);
     /**
+     * Create a result that was an exception
+     */
+    AsyncResult(std::exception_ptr ex);
+    /**
      * Create a finished, successful, async result
      */
     AsyncResult();

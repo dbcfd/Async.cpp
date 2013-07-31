@@ -2,6 +2,7 @@
 #include "async_cpp/async/detail/IParallelTask.h"
 #include "async_cpp/async/detail/ReadyVisitor.h"
 #include "async_cpp/async/detail/ValueVisitor.h"
+#include "async_cpp/tasks/IManager.h"
 
 #include <boost/variant.hpp>
 #include <functional>

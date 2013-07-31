@@ -18,6 +18,13 @@ AsyncResult::AsyncResult()
     promise.set_value(true);
 }
 
+//------------------------------------------------------------------------------
+AsyncResult::AsyncResult(std::exception_ptr ex)
+{
+    std::promise<bool> promise;
+    mFuture = std::make_shared<std::future<bool>>(promise.get_future());
+    promise.set_exception(ex);
+}
 
 //------------------------------------------------------------------------------
 AsyncResult::~AsyncResult()

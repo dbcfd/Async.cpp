@@ -1,5 +1,6 @@
 #pragma once
 #include "async_cpp/async/detail/IAsyncTask.h"
+#include "async_cpp/tasks/IManager.h"
 
 namespace async_cpp {
 namespace async {
