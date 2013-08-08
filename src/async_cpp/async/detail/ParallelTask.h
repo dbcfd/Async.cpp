@@ -60,7 +60,8 @@ ParallelTask<TRESULT>::~ParallelTask()
 template<class TRESULT>
 void ParallelTask<TRESULT>::performSpecific()
 {
-    auto callback = [this](typename VariantType&& result)->void {
+    auto thisPtr = shared_from_this();
+    auto callback = [thisPtr, this](typename VariantType&& result)->void {
         mCollectTask->notifyCompletion(mTaskOrder, std::move(result));
     };
     attemptOperation([callback, this]()->void {

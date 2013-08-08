@@ -54,7 +54,8 @@ SeriesTask<TRESULT>::~SeriesTask()
 template<class TRESULT>
 void SeriesTask<TRESULT>::performSpecific()
 {
-    auto callback = [this](typename VariantType&& result)->void {
+    auto thisPtr = shared_from_this();
+    auto callback = [thisPtr, this](typename VariantType&& result)->void {
         mNextTask->begin(std::move(result));
     };
 
