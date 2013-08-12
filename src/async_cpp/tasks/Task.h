@@ -38,10 +38,15 @@ public:
      */
     void cancel();
 
+    /**
+     * Notify this task of an exception occurring.
+     * @param ex Exception that occurred
+     */
+    virtual void notifyException(std::exception_ptr ex);
+
 protected:
     virtual void performSpecific() = 0;
     virtual void notifyCancel();
-    virtual void notifyException(std::exception_ptr ex);
 
 private:
     Task(const Task& other);

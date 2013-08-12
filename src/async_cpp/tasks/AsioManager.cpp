@@ -69,6 +69,7 @@ void AsioManager::shutdown()
                 mTasksPending.pop();
             }
         }
+        mThreads->interrupt_all();
         mThreads->join_all();
         mThreads.reset();
         mShutdownSignal.notify_all();
@@ -103,6 +104,7 @@ void AsioManager::runNextTask(std::shared_ptr<IManager> manager)
             mTasksOutstanding.fetch_add(1);
             task->perform();
             mTasksOutstanding.fetch_sub(1);
+            std::lock_guard<std::mutex> lock(mTasksMutex);
             mTasksSignal.notify_all();
         }
     }

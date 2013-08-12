@@ -1,4 +1,3 @@
-#ifdef HAS_BOOST
 #include "async_cpp/tasks/AsioManager.h"
 #include "async_cpp/tasks/Task.h"
 
@@ -139,5 +138,3 @@ TEST(ASIO_MANAGER_TEST, WAIT_FOR_COMPLETION)
     //make sure cleanup shuts down correctly
     ASSERT_NO_THROW(manager.reset());
 }
-
-#endif
