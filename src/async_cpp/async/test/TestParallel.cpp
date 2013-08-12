@@ -134,3 +134,62 @@ TEST(PARALLEL_TEST, TIMING)
 
     manager->shutdown();
 }
+
+TEST(PARALLEL_TEST, PASS_ASYNC)
+{
+    auto manager(std::make_shared<tasks::AsioManager>(5));
+
+    std::chrono::high_resolution_clock::time_point p1Op, p1Then, p2Op, p2Then, join;
+
+    auto op1 = [&p1Op, &p1Then, manager](Parallel<bool>::callback_t cb)->void
+        {
+            Parallel<bool>::operation_t ops[] = {
+                [&p1Op](Parallel<bool>::callback_t cb)->void
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    p1Op = std::chrono::high_resolution_clock::now();
+                    cb(true);
+                }
+            };
+
+            cb(Parallel<bool>(manager, ops, 1).then(
+                [&p1Then](std::exception_ptr ex, std::vector<bool>&&)->void
+            {
+                if(ex) std::rethrow_exception(ex);
+                p1Then = std::chrono::high_resolution_clock::now();
+            } ) );
+        };
+
+    auto op2 = [&p2Op, &p2Then, manager](Parallel<bool>::callback_t cb)->void
+        {
+            Parallel<bool>::operation_t ops[] = {
+                [&p2Op](Parallel<bool>::callback_t cb)->void
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    p2Op = std::chrono::high_resolution_clock::now();
+                    cb(true);
+                }
+            };
+
+            cb(Parallel<bool>(manager, ops, 1).then(
+                [&p2Then](std::exception_ptr ex, std::vector<bool>&&)->void
+            {
+                if(ex) std::rethrow_exception(ex);
+                p2Then = std::chrono::high_resolution_clock::now();
+            } ) );
+        };
+
+    Parallel<bool>::operation_t joinOps[] = { op1, op2 };
+
+    ASSERT_NO_THROW(Parallel<bool>(manager, joinOps, 2).then(
+        [&join](std::exception_ptr ex, std::vector<bool>&&)->void 
+        { 
+            if(ex) std::rethrow_exception(ex);
+            join = std::chrono::high_resolution_clock::now(); 
+    } ).check() );
+
+    EXPECT_LT(p1Op, p1Then);
+    EXPECT_LT(p2Op, p2Then);
+    EXPECT_LT(p1Then, join);
+    EXPECT_LT(p2Then, join);
+}
