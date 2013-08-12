@@ -11,9 +11,23 @@
 using namespace async_cpp;
 using namespace async_cpp::async;
 
-TEST(PARALLEL_TEST, BASIC)
+class ParallelTest : public testing::Test {
+public:
+    virtual void SetUp() final
+    {
+        manager = std::make_shared<tasks::AsioManager>(5);
+    }
+
+    virtual void TearDown() final
+    {
+        manager->shutdown();
+    }
+
+    tasks::ManagerPtr manager;
+};
+
+TEST_F(ParallelTest, BASIC)
 {
-    auto manager = std::make_shared<tasks::AsioManager>(5);
     std::atomic<int> runCount(1);
     std::vector<int> taskRunOrder(6, 0);
 
@@ -53,13 +67,10 @@ TEST(PARALLEL_TEST, BASIC)
     EXPECT_NO_THROW(result.check());
 
     EXPECT_LE(5, runCount);
-
-    manager->shutdown();
 }
 
-TEST(PARALLEL_TEST, INTERRUPT)
+TEST_F(ParallelTest, INTERRUPT)
 {
-    auto manager(std::make_shared<tasks::AsioManager>(5));
     std::atomic<int> runCount(1);
     std::vector<int> taskRunOrder(6, 0);
 
@@ -91,21 +102,25 @@ TEST(PARALLEL_TEST, INTERRUPT)
         }
     };
 
-    AsyncResult result;
-    EXPECT_NO_THROW(result = Parallel<bool>(manager, opsArray, 5).then(
-        [&taskRunOrder, &runCount](std::exception_ptr ex, std::vector<bool>&&)->void{
-            if(ex) std::rethrow_exception(ex);
-            taskRunOrder[5] = runCount;
-        } ) );
+    auto thenFunc = [&taskRunOrder, &runCount](std::exception_ptr ex, std::vector<bool>&&)->void
+    {
+        if(ex) std::rethrow_exception(ex);
+        taskRunOrder[5] = runCount;
+    };
 
-    manager->shutdown();
+    auto parallel = Parallel<bool>(manager, opsArray, 5);
+
+    AsyncResult result;
+    ASSERT_NO_THROW(result = parallel.then(thenFunc));
+
+    parallel.cancel();
+
     EXPECT_THROW(result.check(), std::runtime_error);
 }
 
-TEST(PARALLEL_TEST, TIMING)
+TEST_F(ParallelTest, TIMING)
 {
     typedef std::chrono::high_resolution_clock::time_point data_t;
-    auto manager(std::make_shared<tasks::AsioManager>(5));
 
     auto func = [](Parallel<data_t>::callback_t cb)->void { 
         cb(std::chrono::high_resolution_clock::now());
@@ -131,24 +146,20 @@ TEST(PARALLEL_TEST, TIMING)
     auto totalDur = std::chrono::high_resolution_clock::now() - start;
 
     EXPECT_GE(totalDur, maxDur);
-
-    manager->shutdown();
 }
 
-TEST(PARALLEL_TEST, PASS_ASYNC)
+TEST_F(ParallelTest, PASS_ASYNC)
 {
-    auto manager(std::make_shared<tasks::AsioManager>(5));
+    std::shared_ptr<std::chrono::high_resolution_clock::time_point> p1Op, p1Then, p2Op, p2Then, join;
 
-    std::chrono::high_resolution_clock::time_point p1Op, p1Then, p2Op, p2Then, join;
-
-    auto op1 = [&p1Op, &p1Then, manager](Parallel<bool>::callback_t cb)->void
+    auto op1 = [&p1Op, &p1Then, this](Parallel<bool>::callback_t cb)->void
         {
             Parallel<bool>::operation_t ops[] = {
-                [&p1Op](Parallel<bool>::callback_t cb)->void
+                [&p1Op](Parallel<bool>::callback_t innerCb)->void
                 {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-                    p1Op = std::chrono::high_resolution_clock::now();
-                    cb(true);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    p1Op = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now());
+                    innerCb(true);
                 }
             };
 
@@ -156,18 +167,19 @@ TEST(PARALLEL_TEST, PASS_ASYNC)
                 [&p1Then](std::exception_ptr ex, std::vector<bool>&&)->void
             {
                 if(ex) std::rethrow_exception(ex);
-                p1Then = std::chrono::high_resolution_clock::now();
+                p1Then = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now());
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
             } ) );
         };
 
-    auto op2 = [&p2Op, &p2Then, manager](Parallel<bool>::callback_t cb)->void
+    auto op2 = [&p2Op, &p2Then, this](Parallel<bool>::callback_t cb)->void
         {
             Parallel<bool>::operation_t ops[] = {
-                [&p2Op](Parallel<bool>::callback_t cb)->void
+                [&p2Op](Parallel<bool>::callback_t innerCb)->void
                 {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-                    p2Op = std::chrono::high_resolution_clock::now();
-                    cb(true);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    p2Op = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now());
+                    innerCb(true);
                 }
             };
 
@@ -175,21 +187,85 @@ TEST(PARALLEL_TEST, PASS_ASYNC)
                 [&p2Then](std::exception_ptr ex, std::vector<bool>&&)->void
             {
                 if(ex) std::rethrow_exception(ex);
-                p2Then = std::chrono::high_resolution_clock::now();
+                p2Then = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now());
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
             } ) );
         };
 
     Parallel<bool>::operation_t joinOps[] = { op1, op2 };
 
-    ASSERT_NO_THROW(Parallel<bool>(manager, joinOps, 2).then(
-        [&join](std::exception_ptr ex, std::vector<bool>&&)->void 
-        { 
-            if(ex) std::rethrow_exception(ex);
-            join = std::chrono::high_resolution_clock::now(); 
-    } ).check() );
+    auto thenFunc = [&join](std::exception_ptr ex, std::vector<bool>&&)->void 
+    { 
+        if(ex) std::rethrow_exception(ex);
+        join = std::make_shared<std::chrono::high_resolution_clock::time_point>(std::chrono::high_resolution_clock::now()); 
+    };
 
-    EXPECT_LT(p1Op, p1Then);
-    EXPECT_LT(p2Op, p2Then);
-    EXPECT_LT(p1Then, join);
-    EXPECT_LT(p2Then, join);
+    ASSERT_NO_THROW(Parallel<bool>(manager, joinOps, 2).then(thenFunc).check());
+
+    EXPECT_LE(p1Op->time_since_epoch().count(), p1Then->time_since_epoch().count());
+    EXPECT_LE(p2Op->time_since_epoch().count(), p2Then->time_since_epoch().count());
+    EXPECT_LT(p1Then->time_since_epoch().count(), join->time_since_epoch().count());
+    EXPECT_LT(p2Then->time_since_epoch().count(), join->time_since_epoch().count());
+}
+
+TEST_F(ParallelTest, INNER_CALLBACK)
+{
+    std::chrono::high_resolution_clock::time_point p1Op, p1Then, p2Op, p2Then, join;
+
+    auto op1 = [&p1Op, &p1Then, this](Parallel<bool>::callback_t cb)->void
+        {
+            Parallel<bool>::operation_t ops[] = {
+                [&p1Op](Parallel<bool>::callback_t cb)->void
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    p1Op = std::chrono::high_resolution_clock::now();
+                    cb(true);
+                }
+            };
+
+            Parallel<bool>(manager, ops, 1).then(
+                [&p1Then, cb](std::exception_ptr ex, std::vector<bool>&&)->void
+            {
+                if(ex) std::rethrow_exception(ex);
+                p1Then = std::chrono::high_resolution_clock::now();
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                cb(true);
+            } );
+        };
+
+    auto op2 = [&p2Op, &p2Then, this](Parallel<bool>::callback_t cb)->void
+        {
+            Parallel<bool>::operation_t ops[] = {
+                [&p2Op](Parallel<bool>::callback_t cb)->void
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    p2Op = std::chrono::high_resolution_clock::now();
+                    cb(true);
+                }
+            };
+
+            Parallel<bool>(manager, ops, 1).then(
+                [&p2Then, cb](std::exception_ptr ex, std::vector<bool>&&)->void
+            {
+                if(ex) std::rethrow_exception(ex);
+                p2Then = std::chrono::high_resolution_clock::now();
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                cb(true);
+            } );
+        };
+
+    Parallel<bool>::operation_t joinOps[] = { op1, op2 };
+
+    auto thenFunc = [&join](std::exception_ptr ex, std::vector<bool>&&)->void 
+    { 
+        if(ex) std::rethrow_exception(ex);
+        join = std::chrono::high_resolution_clock::now(); 
+    };
+
+    ASSERT_NO_THROW(Parallel<bool>(manager, joinOps, 2).then(thenFunc).check());
+
+    EXPECT_LE(p1Op.time_since_epoch().count(), p1Then.time_since_epoch().count());
+    EXPECT_LE(p2Op.time_since_epoch().count(), p2Then.time_since_epoch().count());
+    EXPECT_LT(p1Then.time_since_epoch().count(), join.time_since_epoch().count());
+    EXPECT_LT(p2Then.time_since_epoch().count(), join.time_since_epoch().count());
 }

@@ -27,8 +27,6 @@ public:
 protected:
     IAsyncTask(const IAsyncTask& other);
 
-    virtual void attemptOperation(std::function<void(void)> op) = 0;
-
     std::weak_ptr<tasks::IManager> mManager;
 };
 

@@ -16,14 +16,14 @@ public:
     virtual ~SeriesCollectTask();
 
     AsyncResult result();
+    virtual void notifyException(std::exception_ptr ex) final;
 protected:
     virtual void performSpecific() final;
+    virtual void notifyCancel() final;
 
 private:
-    virtual void attemptOperation(std::function<void(void)> op) final;
-
     typename then_t mThenFunc;
-    std::promise<bool> mPromise;
+    std::packaged_task<bool(std::exception_ptr, typename VariantType&&)> mTask;
 };
 
 //inline implementations
@@ -34,7 +34,12 @@ SeriesCollectTask<TRESULT>::SeriesCollectTask(std::weak_ptr<tasks::IManager> mgr
                                      : ISeriesTask<TRESULT>(mgr), 
                                      mThenFunc(thenFunc)
 {
-
+    mTask = std::packaged_task<bool(std::exception_ptr, typename VariantType&&)>([thenFunc](std::exception_ptr ex, typename VariantType&& previous)->bool 
+    {
+        thenFunc(ex, boost::apply_visitor(ValueVisitor<TRESULT>(), previous));
+        if(ex) std::rethrow_exception(ex);
+        return true;
+    } );
 }
 
 //------------------------------------------------------------------------------
@@ -48,31 +53,28 @@ SeriesCollectTask<TRESULT>::~SeriesCollectTask()
 template<class TRESULT>
 void SeriesCollectTask<TRESULT>::performSpecific()
 {
-    attemptOperation([this]()->void {
-        mThenFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult));
-        mPromise.set_value(true);
-    } );
+    mTask(nullptr, std::move(mPreviousResult));
 }
 
 //------------------------------------------------------------------------------
 template<class TRESULT>
 AsyncResult SeriesCollectTask<TRESULT>::result()
 {
-    return AsyncResult(mPromise.get_future());
+    return AsyncResult(mTask.get_future());
 }
 
 //------------------------------------------------------------------------------
-template<class TRESULT>
-void SeriesCollectTask<TRESULT>::attemptOperation(std::function<void(void)> func)
+template<class T>
+void SeriesCollectTask<T>::notifyCancel()
 {
-    try
-    {
-        func();
-    }
-    catch(...)
-    {
-        mPromise.set_exception(std::current_exception());
-    }
+    mTask(std::make_exception_ptr(std::runtime_error("Cancelled")), std::move(mPreviousResult));
+}
+
+//------------------------------------------------------------------------------
+template<class T>
+void SeriesCollectTask<T>::notifyException(std::exception_ptr ex)
+{
+    mTask(ex, std::move(mPreviousResult));
 }
 
 }

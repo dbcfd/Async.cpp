@@ -11,7 +11,7 @@ namespace detail {
 template<class TRESULT>
 class SeriesTask : public ISeriesTask<TRESULT> {
 public:
-    typedef typename std::function<void(typename VariantType&&)> callback_t;
+    typedef typename std::function<void(typename VariantType)> callback_t;
     typedef typename std::function<void(std::exception_ptr, TRESULT*, typename callback_t)> operation_t;
     /**
      * Create an asynchronous task that does not take in information and returns an AsyncResult via a packaged_task.
@@ -22,12 +22,13 @@ public:
         std::shared_ptr<ISeriesTask<TRESULT>> nextTask);    
     virtual ~SeriesTask();
 
+    virtual void notifyException(std::exception_ptr ex) final;
+
 protected:
     virtual void performSpecific() final;
+    virtual void notifyCancel() final;
 
 private:
-    virtual void attemptOperation(std::function<void(void)> op) final;
-
     std::shared_ptr<ISeriesTask<TRESULT>> mNextTask;
     typename operation_t mGenerateResultFunc;
 };
@@ -55,27 +56,25 @@ template<class TRESULT>
 void SeriesTask<TRESULT>::performSpecific()
 {
     auto thisPtr = shared_from_this();
-    auto callback = [thisPtr, this](typename VariantType&& result)->void {
+    auto callback = [thisPtr, this](typename VariantType result)->void {
         mNextTask->begin(std::move(result));
     };
 
-    attemptOperation([this, callback]()->void {
-        mGenerateResultFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult), callback);
-    } );
+    mGenerateResultFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult), callback);
 }
 
 //------------------------------------------------------------------------------
-template<class TDATA>
-void SeriesTask<TDATA>::attemptOperation(std::function<void(void)> op)
+template<class T>
+void SeriesTask<T>::notifyCancel()
 {
-    try
-    {
-        op();
-    }
-    catch(...)
-    {
-        mNextTask->begin(std::current_exception());
-    }
+   mNextTask->cancel();
+}
+
+//------------------------------------------------------------------------------
+template<class T>
+void SeriesTask<T>::notifyException(std::exception_ptr ex)
+{
+    mNextTask->notifyException(ex);
 }
 
 }

@@ -37,20 +37,18 @@ public:
 
     AsyncResult result();
     void notifyCompletion(const size_t taskOrder, typename VariantType&& result);
+    virtual void notifyException(std::exception_ptr ex) final;
+
 protected:
     virtual void performSpecific() final;
     virtual void notifyCancel() final;
-    virtual void notifyException(std::exception_ptr ex) final;
 
 private:
-    virtual void attemptOperation(std::function<void(void)> op) final;
-
-    typename then_t mThenFunction;
     size_t mTasksOutstanding;
     std::mutex mResultsMutex;
-    std::map<size_t, VariantType> mResults;
+    std::map<size_t, typename VariantType> mResults;
     result_set_t mPreparedResults;
-    std::promise<bool> mPromise;
+    std::packaged_task<bool(std::exception_ptr, result_set_t&&)> mTask;
     std::atomic_bool mValid;
 };
 
@@ -61,11 +59,18 @@ ParallelCollectTask<TRESULT>::ParallelCollectTask(std::weak_ptr<tasks::IManager>
         const size_t tasksOutstanding,
         typename then_t thenFunction)
     : IParallelTask(mgr),
-      mTasksOutstanding(tasksOutstanding),
-      mThenFunction(thenFunction)
+      mTasksOutstanding(tasksOutstanding)
 {
     mValid.store(true);
     mPreparedResults.reserve(mTasksOutstanding);
+    mTask = std::packaged_task<bool(std::exception_ptr, result_set_t&&)>([thenFunction](std::exception_ptr ex, result_set_t&& results)->bool
+    {
+        if(ex) std::rethrow_exception(ex);
+
+        thenFunction(nullptr, std::move(results));
+
+        return true;
+    } );
 }
 
 //------------------------------------------------------------------------------
@@ -73,12 +78,11 @@ template<class TRESULT>
 ParallelCollectTask<TRESULT>::ParallelCollectTask(ParallelCollectTask&& other)
     : IParallelTask(std::move(other)),
       mTasksOutstanding(std::move(other.mTasksOutstanding)),
-      mThenFunction(std::move(other.mThenFunction)),
       mResults(std::move(other.mResults)),
-      mPromise(std::move(other.mPromise)),
-      mPreparedResults(std::move(other.mPreparedResults))
+      mPreparedResults(std::move(other.mPreparedResults)),
+      mTask(std::move(other.mTask))
 {
-    mValid.store(true);
+    mValid.store(other.mValid);
 }
 
 //------------------------------------------------------------------------------
@@ -92,17 +96,16 @@ ParallelCollectTask<TRESULT>::~ParallelCollectTask()
 template<class TRESULT>
 void ParallelCollectTask<TRESULT>::performSpecific()
 {
-    attemptOperation([this]()->void {
+    if(mValid)
+    {
         ReadyVisitor<TRESULT> isReady;
         ValueVisitor<TRESULT> getValue;
-        bool allResultsReady = true;
-        auto iter = mResults.begin();
-        for(iter; allResultsReady && iter != mResults.end(); ++iter)
+        std::map<size_t, typename VariantType> readyResults;
+        for(auto& kv : mResults)
         {
-            auto& varResult = iter->second;
-            if(boost::apply_visitor(isReady, varResult))
+            if(boost::apply_visitor(isReady, kv.second))
             {
-                auto resultPtr = boost::apply_visitor(getValue, varResult);
+                auto resultPtr = boost::apply_visitor(getValue, kv.second);
                 if(resultPtr)
                 {
                     mPreparedResults.push_back(std::move(*resultPtr));
@@ -110,79 +113,44 @@ void ParallelCollectTask<TRESULT>::performSpecific()
             }
             else
             {
-                allResultsReady = false;
+                readyResults.insert(std::move(kv));
             }
         }
-        mResults.erase(mResults.begin(), iter);
+        mResults.clear();
+        mResults.swap(readyResults);
 
-        if(allResultsReady)
+        if(mResults.empty())
         {
-            try
-            {
-                mThenFunction(nullptr, std::move(mPreparedResults));
-                mPromise.set_value(true);
-            }
-            catch(...)
-            {
-                mPromise.set_exception(std::current_exception());
-            }
+            mTask(nullptr, std::move(mPreparedResults));
+            mPreparedResults.clear();
         }
         else
         {
             mManager.lock()->run(std::make_shared<ParallelCollectTask>(std::move(*this)));
         }
-    } );
+    }
 }
-
-
 
 //------------------------------------------------------------------------------
 template<class TRESULT>
 AsyncResult ParallelCollectTask<TRESULT>::result()
 {
-    return AsyncResult(mPromise.get_future());
+    return AsyncResult(mTask.get_future());
 }
 
 //------------------------------------------------------------------------------
 template<class TRESULT>
 void ParallelCollectTask<TRESULT>::notifyCompletion(const size_t taskIndex, typename VariantType&& result)
 {
-    std::lock_guard<std::mutex> lock(mResultsMutex);
-    mResults.emplace(taskIndex, std::move(result));
-    if(mResults.size() == mTasksOutstanding)
+    //only care about results if we're still valid
+    if(mValid)
     {
-        //only want to run this task if not cancelled, otherwise, mark as cancelled once all other tasks finish
-        if(mValid)
+        std::lock_guard<std::mutex> lock(mResultsMutex);
+        mResults.insert(std::make_pair(taskIndex, std::move(result)));
+        --mTasksOutstanding;
+        if(0 == mTasksOutstanding)
         {
             mManager.lock()->run(shared_from_this());
-        }
-        else
-        {
-            attemptOperation([]()->void {
-                throw(std::runtime_error("Cancelled"));
-            } );
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-template<class TRESULT>
-void ParallelCollectTask<TRESULT>::attemptOperation(std::function<void(void)> func)
-{
-    try
-    {
-        func();
-    }
-    catch(...)
-    {
-        try
-        {
-            mThenFunction(std::current_exception(), result_set_t());
-            mPromise.set_exception(std::current_exception());
-        }
-        catch(...)
-        {
-            mPromise.set_exception(std::current_exception());
         }
     }
 }
@@ -193,15 +161,15 @@ void ParallelCollectTask<T>::notifyCancel()
 {
     //mark as invalid, so we won't attempt to run this task
     mValid.exchange(false);
+    mTask(std::make_exception_ptr(std::runtime_error("Cancelled")), result_set_t());
 }
 
 //------------------------------------------------------------------------------
 template<class T>
 void ParallelCollectTask<T>::notifyException(std::exception_ptr ex)
 {
-    attemptOperation([ex]()->void {
-        std::rethrow_exception(ex);
-    } );
+    mValid.exchange(false);
+    mTask(ex, result_set_t());
 }
 
 }

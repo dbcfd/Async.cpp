@@ -14,7 +14,7 @@ namespace detail {
 template<class TRESULT>
 class ParallelTask : public IParallelTask<TRESULT> {
 public:
-    typedef typename std::function<void(typename VariantType&&)> callback_t;
+    typedef typename std::function<void(typename VariantType)> callback_t;
     typedef typename std::function<void(callback_t)> operation_t;
 
     ParallelTask(std::weak_ptr<tasks::IManager> mgr, 
@@ -22,15 +22,13 @@ public:
         const size_t taskOrder,
         std::shared_ptr<ParallelCollectTask<TRESULT>> parallelCollectTask);
     virtual ~ParallelTask();
+    virtual void notifyException(std::exception_ptr ex) final;
 
 protected:
     virtual void performSpecific() final;
     virtual void notifyCancel() final;
-    virtual void notifyException(std::exception_ptr ex) final;
 
 private:
-    virtual void attemptOperation(std::function<void(void)> func) final;
-
     std::shared_ptr<ParallelCollectTask<TRESULT>> mCollectTask;
     typename operation_t mGenerateResultFunc;
     size_t mTaskOrder;
@@ -61,26 +59,10 @@ template<class TRESULT>
 void ParallelTask<TRESULT>::performSpecific()
 {
     auto thisPtr = shared_from_this();
-    auto callback = [thisPtr, this](typename VariantType&& result)->void {
+    auto callback = [thisPtr, this](typename VariantType result)->void {
         mCollectTask->notifyCompletion(mTaskOrder, std::move(result));
     };
-    attemptOperation([callback, this]()->void {
-        mGenerateResultFunc(callback);
-    } );
-}
-
-//------------------------------------------------------------------------------
-template<class TRESULT>
-void ParallelTask<TRESULT>::attemptOperation(std::function<void(void)> func)
-{
-    try
-    {
-        func();
-    }
-    catch(...)
-    {
-        mCollectTask->notifyCompletion(mTaskOrder, std::current_exception());
-    }
+    mGenerateResultFunc(callback);
 }
 
 //------------------------------------------------------------------------------
@@ -88,18 +70,13 @@ template<class TRESULT>
 void ParallelTask<TRESULT>::notifyCancel()
 {
     mCollectTask->cancel();
-    attemptOperation([]()->void {
-        throw(std::runtime_error("Cancelled"));
-    } );
 }
 
 //------------------------------------------------------------------------------
 template<class TRESULT>
 void ParallelTask<TRESULT>::notifyException(std::exception_ptr ex)
 {
-    attemptOperation([ex]()->void {
-        std::rethrow_exception(ex);
-    } );
+    mCollectTask->notifyException(ex);
 }
 
 }
