@@ -1,4 +1,3 @@
-#ifdef HAS_BOOST
 #include "async_cpp/tasks/AsioManager.h"
 #include "async_cpp/tasks/Task.h"
 
@@ -11,31 +10,24 @@ namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
-class AsioManager::WorkWrapper : boost::asio::io_service::work {
-public:
-    WorkWrapper(boost::asio::io_service& service) : boost::asio::io_service::work(service)
-    {
-
-    }
-};
-
-//------------------------------------------------------------------------------
 AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io_service> service)
-    : IManager(), mService(service), mNbThreads(nbThreads)
+    : IManager(), mNbThreads(nbThreads), mCreatedService(false)
 {
-    if(!mService)
+    if(!service)
     {
-        mService = std::make_shared<boost::asio::io_service>();
+        service = std::make_shared<boost::asio::io_service>();
+        mCreatedService = true;
     }
+    mService = service;
     mRunning.store(true);
     mTasksOutstanding.store(0);
-    mWork = std::unique_ptr<WorkWrapper>(new WorkWrapper(*mService));
+    auto work = std::make_shared<boost::asio::io_service::work>(*mService);
     mThreads = std::unique_ptr<boost::thread_group>(new boost::thread_group());
     
     for(size_t i = 0; i < nbThreads; ++i)
     {
-        mThreads->create_thread([this]()->void {
-            mService->run();
+        mThreads->create_thread([work, service]()->void {
+            service->run();
         });
     }
 }
@@ -57,7 +49,10 @@ void AsioManager::shutdown()
     bool wasRunning = mRunning.exchange(false);
     if(wasRunning)
     {
-        mService->stop();
+        if(mCreatedService)
+        {
+            mService->stop();
+        }
         {
             std::unique_lock<std::mutex> lock(mTasksMutex);
             mTasksSignal.wait(lock, [this]()->bool {
@@ -79,8 +74,9 @@ void AsioManager::shutdown()
 //------------------------------------------------------------------------------
 void AsioManager::waitForTasksToComplete()
 {
+    auto thisPtr = shared_from_this();
     std::unique_lock<std::mutex> lock(mTasksMutex);
-    mTasksSignal.wait(lock, [this]()->bool {
+    mTasksSignal.wait(lock, [this, thisPtr]()->bool {
         return mTasksPending.empty() && (0 == mTasksOutstanding.load());
     } );
 }
@@ -144,8 +140,10 @@ void AsioManager::run(std::shared_ptr<Task> task, const std::chrono::high_resolu
             }
             else
             {
+                auto thisPtr = shared_from_this();
                 auto taskRunTimer = std::make_shared<boost::asio::deadline_timer>(*mService, boost::posix_time::microseconds((long)dur.count()));
-                taskRunTimer->async_wait([task, taskRunTimer, this](const boost::system::error_code& ec)->void {
+                taskRunTimer->async_wait([task, taskRunTimer, this, thisPtr](const boost::system::error_code& ec)->void 
+                {
                     if(!ec)
                     {
                         run(task);
@@ -166,5 +164,3 @@ void AsioManager::run(std::shared_ptr<Task> task, const std::chrono::high_resolu
 
 }
 }
-
-#endif

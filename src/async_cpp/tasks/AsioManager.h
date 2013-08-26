@@ -1,5 +1,4 @@
 #pragma once
-#ifdef HAS_BOOST
 #include "async_cpp/tasks/Tasks.h"
 #include "async_cpp/tasks/IManager.h"
 
@@ -75,17 +74,15 @@ public:
 protected:
     void runNextTask(std::shared_ptr<IManager> manager);
 
-    class WorkWrapper;
-
     std::atomic_bool mRunning;
     std::atomic_size_t mTasksOutstanding;
     std::mutex mTasksMutex;
     std::condition_variable mTasksSignal;
     std::queue<std::shared_ptr<Task>> mTasksPending;
     std::shared_ptr<boost::asio::io_service> mService;
-    std::unique_ptr<WorkWrapper> mWork;
     std::unique_ptr<boost::thread_group> mThreads;
     std::condition_variable mShutdownSignal;
+    bool mCreatedService;
     size_t mNbThreads;
 };
 
@@ -110,5 +107,3 @@ size_t AsioManager::idealNumberOfSimultaneousTasks() const
 
 }
 }
-
-#endif
