@@ -42,8 +42,6 @@ TEST(ASIO_MANAGER_TEST, BASIC_TEST)
     //less workers than tasks, make sure they can go back and grab tasks
     auto manager = std::make_shared<AsioManager>(2);
 
-    EXPECT_EQ(2, manager->idealNumberOfSimultaneousTasks());
-
     for(auto task : tasks)
     {
         manager->run(task);
@@ -137,4 +135,30 @@ TEST(ASIO_MANAGER_TEST, WAIT_FOR_COMPLETION)
     ASSERT_NO_THROW(manager->waitForTasksToComplete());
     //make sure cleanup shuts down correctly
     ASSERT_NO_THROW(manager.reset());
+}
+
+TEST(ASIO_MANAGER_TEST, RESET_WHILE_TASKS_RUNNING)
+{
+    //setup a bunch of tasks
+    std::vector< std::shared_ptr<Task> > tasks;
+    for(size_t i = 0; i < 10; ++i) 
+    {
+        tasks.emplace_back(std::make_shared<AsioTestTask>());
+    }
+
+    //less workers than tasks, make sure they can go back and grab tasks
+    auto manager = std::make_shared<AsioManager>(2);
+
+    for(auto task : tasks)
+    {
+        manager->run(task);
+    }
+
+    ASSERT_NO_THROW(manager.reset());
+
+    //wait for all the tasks
+    for(auto task : tasks)
+    {
+        task->wasSuccessful();
+    }
 }

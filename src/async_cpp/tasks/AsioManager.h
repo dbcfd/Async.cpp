@@ -31,57 +31,25 @@ public:
     AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io_service> service = std::shared_ptr<boost::asio::io_service>());
     ~AsioManager();
 
-    /**
-     * Run a task on the first available worker, queueing if none are available.
-     * @param task Task to run
-     */
     virtual void run(std::shared_ptr<Task> task) final;
-
-    /**
-     * Run a task in this manager at a specified time. If manager is shutdown, task will fail to perform.
-     * @param task Task to run
-     */
     virtual void run(std::shared_ptr<Task> task, const std::chrono::high_resolution_clock::time_point& time) final;
-
-    /**
-     * Shutdown this manager, including all workers. Any queued tasks will be marked as failing to complete.
-     */
     virtual void shutdown() final;
+    virtual void waitForTasksToComplete();
 
-    /**
-     * Wait for all tasks running or queued to complete.
-     */
-    virtual void waitForTasksToComplete() final;
-
-    /**
-     * Flag indicating whether this manager is running. If not running, any tasks passed to it will be marked as failing to complete.
-     * @return True if manager is running
-     */
     inline virtual const bool isRunning() final;
-
-    /**
-     * The ideal number of tasks that can be run at once, such that they should all run at approximately the same time. This is
-     * most likely the number of threads/workers.
-     * @return Ideal number of tasks to run at once
-     */
-    inline virtual size_t idealNumberOfSimultaneousTasks() const final;
 
     /**
      * Retrieve the asio service that this manager is using.
      * @return Reference to boost::asio::io_service that is being used
      */
-    inline std::shared_ptr<boost::asio::io_service> getService();
+    inline std::shared_ptr<boost::asio::io_service> getService() const;
 protected:
-    void runNextTask(std::shared_ptr<IManager> manager);
+    class Tasks;
 
+    std::shared_ptr<Tasks> mTasks;
     std::atomic_bool mRunning;
-    std::atomic_size_t mTasksOutstanding;
-    std::mutex mTasksMutex;
-    std::condition_variable mTasksSignal;
-    std::queue<std::shared_ptr<Task>> mTasksPending;
     std::shared_ptr<boost::asio::io_service> mService;
     std::unique_ptr<boost::thread_group> mThreads;
-    std::condition_variable mShutdownSignal;
     bool mCreatedService;
     size_t mNbThreads;
 };
@@ -94,15 +62,9 @@ const bool AsioManager::isRunning()
 }
 
 //------------------------------------------------------------------------------
-std::shared_ptr<boost::asio::io_service> AsioManager::getService()
+std::shared_ptr<boost::asio::io_service> AsioManager::getService() const
 {
     return mService;
-}
-
-//------------------------------------------------------------------------------
-size_t AsioManager::idealNumberOfSimultaneousTasks() const
-{
-    return mNbThreads;
 }
 
 }

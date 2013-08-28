@@ -10,8 +10,66 @@ namespace async_cpp {
 namespace tasks {
 
 //------------------------------------------------------------------------------
+class AsioManager::Tasks {
+public:
+    Tasks()
+    {
+
+    }
+
+    std::shared_ptr<Task> get()
+    {
+        std::shared_ptr<Task> task;
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            if(!mTasks.empty())
+            {
+                task = mTasks.front();
+                mTasks.pop();
+            }
+        }
+        return task;
+    }
+
+    void add(std::shared_ptr<Task> task)
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mTasks.push(task);
+    }
+
+    void cancel()
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        while(!mTasks.empty())
+        {
+            mTasks.front()->cancel();
+            mTasks.pop();
+        }
+    }
+
+    void notifyCompletion()
+    {
+        mTaskCompleteSignal.notify_all();
+    }
+
+    void waitForTasksToComplete()
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mTaskCompleteSignal.wait(lock, [this]()->bool 
+        {
+            return mTasks.empty();
+        } );
+    }
+
+private:
+    std::mutex mMutex;
+    std::queue<std::shared_ptr<Task>> mTasks;
+    std::condition_variable mTaskCompleteSignal;
+};
+
+//------------------------------------------------------------------------------
 AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io_service> service)
-    : IManager(), mNbThreads(nbThreads), mCreatedService(false)
+    : IManager(), mNbThreads(nbThreads), mCreatedService(false), mTasks(std::make_shared<Tasks>())
 {
     if(!service)
     {
@@ -20,10 +78,10 @@ AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io
     }
     mService = service;
     mRunning.store(true);
-    mTasksOutstanding.store(0);
     auto work = std::make_shared<boost::asio::io_service::work>(*mService);
     mThreads = std::unique_ptr<boost::thread_group>(new boost::thread_group());
     
+    auto tasks = mTasks;
     for(size_t i = 0; i < nbThreads; ++i)
     {
         mThreads->create_thread([work, service]()->void {
@@ -36,11 +94,6 @@ AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io
 AsioManager::~AsioManager()
 {
     shutdown();
-    std::mutex mutex;
-    std::unique_lock<std::mutex> lock(mutex);
-    mShutdownSignal.wait(lock, [this]()->bool {
-        return (nullptr == mThreads);
-    } );
 }
 
 //------------------------------------------------------------------------------
@@ -53,57 +106,19 @@ void AsioManager::shutdown()
         {
             mService->stop();
         }
-        {
-            std::unique_lock<std::mutex> lock(mTasksMutex);
-            mTasksSignal.wait(lock, [this]()->bool {
-                return (0 == mTasksOutstanding.load());
-            } );
-            while(!mTasksPending.empty())
-            {
-                mTasksPending.front()->cancel();
-                mTasksPending.pop();
-            }
-        }
+        mTasks->cancel();
+        mTasks->waitForTasksToComplete();
+        mTasks.reset();
         mThreads->interrupt_all();
         mThreads->join_all();
         mThreads.reset();
-        mShutdownSignal.notify_all();
     }
 }
 
 //------------------------------------------------------------------------------
 void AsioManager::waitForTasksToComplete()
 {
-    auto thisPtr = shared_from_this();
-    std::unique_lock<std::mutex> lock(mTasksMutex);
-    mTasksSignal.wait(lock, [this, thisPtr]()->bool {
-        return mTasksPending.empty() && (0 == mTasksOutstanding.load());
-    } );
-}
-
-//------------------------------------------------------------------------------
-void AsioManager::runNextTask(std::shared_ptr<IManager> manager)
-{
-    if(mRunning.load())
-    {
-        std::shared_ptr<Task> task;
-        {
-            std::lock_guard<std::mutex> lock(mTasksMutex);
-            if(!mTasksPending.empty())
-            {
-                task = mTasksPending.front();
-                mTasksPending.pop();
-            }
-        }
-        if(task)
-        {
-            mTasksOutstanding.fetch_add(1);
-            task->perform();
-            mTasksOutstanding.fetch_sub(1);
-            std::lock_guard<std::mutex> lock(mTasksMutex);
-            mTasksSignal.notify_all();
-        }
-    }
+    mTasks->waitForTasksToComplete();
 }
 
 //------------------------------------------------------------------------------
@@ -113,11 +128,17 @@ void AsioManager::run(std::shared_ptr<Task> task)
     {
         if(mRunning.load())
         {
+            mTasks->add(task);
+            auto tasks = mTasks;
+            mService->post([tasks]()->void
             {
-                std::lock_guard<std::mutex> lock(mTasksMutex);
-                mTasksPending.push(task);
-            }
-            mService->post(std::bind(&AsioManager::runNextTask, this, shared_from_this()));
+                auto task = tasks->get();
+                if(task)
+                {
+                    task->perform();
+                }
+                tasks->notifyCompletion();
+            } );
         }  
         else
         {
@@ -140,13 +161,21 @@ void AsioManager::run(std::shared_ptr<Task> task, const std::chrono::high_resolu
             }
             else
             {
-                auto thisPtr = shared_from_this();
+                std::weak_ptr<IManager> managerPtr = shared_from_this();
                 auto taskRunTimer = std::make_shared<boost::asio::deadline_timer>(*mService, boost::posix_time::microseconds((long)dur.count()));
-                taskRunTimer->async_wait([task, taskRunTimer, this, thisPtr](const boost::system::error_code& ec)->void 
+                taskRunTimer->async_wait([task, taskRunTimer, managerPtr](const boost::system::error_code& ec)->void 
                 {
                     if(!ec)
                     {
-                        run(task);
+                        auto manager = managerPtr.lock();
+                        if(manager)
+                        {
+                            manager->run(task);
+                        }
+                        else
+                        {
+                            task->cancel();
+                        }
                     }
                     else
                     {
