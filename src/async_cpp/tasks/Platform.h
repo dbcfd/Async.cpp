@@ -12,3 +12,9 @@
 #else
 #define ASYNC_CPP_TASKS_API
 #endif
+
+#ifdef WINDOWS
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0502
+#endif
+#endif

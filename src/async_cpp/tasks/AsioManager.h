@@ -3,15 +3,13 @@
 #include "async_cpp/tasks/IManager.h"
 
 #include <atomic>
+#include <boost/asio.hpp>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
 
 namespace boost {
-namespace asio {
-class io_service;
-}
 class thread_group;
 }
 
@@ -50,6 +48,7 @@ protected:
     std::atomic_bool mRunning;
     std::shared_ptr<boost::asio::io_service> mService;
     std::unique_ptr<boost::thread_group> mThreads;
+    std::shared_ptr<boost::asio::io_service::work> mWork;
     bool mCreatedService;
     size_t mNbThreads;
 };

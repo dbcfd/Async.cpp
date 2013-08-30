@@ -1,10 +1,7 @@
 #include "async_cpp/tasks/AsioManager.h"
 #include "async_cpp/tasks/Task.h"
 
-#include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
-
-#include <assert.h>
 
 namespace async_cpp {
 namespace tasks {
@@ -78,13 +75,13 @@ AsioManager::AsioManager(const size_t nbThreads, std::shared_ptr<boost::asio::io
     }
     mService = service;
     mRunning.store(true);
-    auto work = std::make_shared<boost::asio::io_service::work>(*mService);
+    mWork = std::make_shared<boost::asio::io_service::work>(*mService);
     mThreads = std::unique_ptr<boost::thread_group>(new boost::thread_group());
     
     auto tasks = mTasks;
     for(size_t i = 0; i < nbThreads; ++i)
     {
-        mThreads->create_thread([work, service]()->void {
+        mThreads->create_thread([service]()->void {
             service->run();
         });
     }
@@ -102,13 +99,21 @@ void AsioManager::shutdown()
     bool wasRunning = mRunning.exchange(false);
     if(wasRunning)
     {
+        //free work so service can stop
+        mWork.reset();
+
+        //stop service if we created it
         if(mCreatedService)
         {
             mService->stop();
         }
+
+        //cancel the remaining tasks that aren't running
         mTasks->cancel();
         mTasks->waitForTasksToComplete();
         mTasks.reset();
+
+        //stop all the threads
         mThreads->interrupt_all();
         mThreads->join_all();
         mThreads.reset();

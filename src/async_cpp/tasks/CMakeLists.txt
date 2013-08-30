@@ -19,7 +19,6 @@ add_library (${TARGET} ${HEADERS} ${SOURCES})
 
 include(DllInstaller)
 
-add_definitions("-D_WIN32_WINNT=0x0502")
 include_directories(${Boost_INCLUDE_DIRS})
 set(DEPENDENCIES ${DEPENDENCIES} ${Boost_LIBRARIES})
 if(BUILD_SHARED_LIBS)
