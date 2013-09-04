@@ -71,6 +71,7 @@ AsyncResult Unique<TDATA>::then(typename then_t onUnique)
             {
                 //previous element in list matches this item, item is not the unique one
                 callback(AsyncResult());
+                return;
             }
         }
         callback(std::move(saveData->at(index)));
