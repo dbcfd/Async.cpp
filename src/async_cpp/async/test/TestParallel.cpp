@@ -69,6 +69,52 @@ TEST_F(ParallelTest, BASIC)
     EXPECT_LE(5, runCount);
 }
 
+TEST_F(ParallelTest, DOUBLE_CALLBACK)
+{
+    std::atomic<int> runCount(1);
+    std::vector<int> taskRunOrder(6, 0);
+
+    Parallel<bool>::operation_t opsArray[] = {
+        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
+            taskRunOrder[0] = runCount.fetch_add(1); 
+            cb(AsyncResult());
+            cb(AsyncResult());
+        }, 
+        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
+            taskRunOrder[1] = runCount.fetch_add(1); 
+            cb(AsyncResult());
+        },
+        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
+            taskRunOrder[2] = runCount.fetch_add(1); 
+            cb(AsyncResult());
+            cb(AsyncResult());
+        },
+        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
+            taskRunOrder[3] = runCount.fetch_add(1); 
+            cb(AsyncResult());
+        },
+        [&taskRunOrder, &runCount](Parallel<bool>::callback_t cb)->void { 
+            taskRunOrder[4] = runCount.fetch_add(1); 
+            cb(AsyncResult());
+            cb(AsyncResult());
+        }
+    };
+
+    AsyncResult result;
+    ASSERT_NO_THROW(result = Parallel<bool>(manager, opsArray, 5).then(
+        [&taskRunOrder, &runCount](std::exception_ptr ex, std::vector<bool>&&)->void {
+            if(ex)
+            {
+                std::rethrow_exception(ex);
+            }
+            taskRunOrder[5] = runCount;
+        } ) );
+
+    EXPECT_NO_THROW(result.check());
+
+    EXPECT_LE(5, runCount);
+}
+
 TEST_F(ParallelTest, INTERRUPT)
 {
     std::atomic<int> runCount(1);

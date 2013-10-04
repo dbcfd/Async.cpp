@@ -12,10 +12,10 @@ namespace async {
 template<class TDATA>
 class ParallelFor {
 public:
-    typedef typename std::function<void(const size_t, typename detail::ParallelTask<TDATA>::callback_t)> operation_t;
-    typedef typename typename detail::ParallelTask<TDATA>::callback_t callback_t;
-    typedef typename typename detail::ParallelCollectTask<TDATA>::then_t then_t;
-    typedef typename typename detail::ParallelCollectTask<TDATA>::result_set_t result_set_t;
+    typedef std::function<void(const size_t, typename detail::ParallelTask<TDATA>::callback_t)> operation_t;
+    typedef typename detail::ParallelTask<TDATA>::callback_t callback_t;
+    typedef typename detail::ParallelCollectTask<TDATA>::then_t then_t;
+    typedef typename detail::ParallelCollectTask<TDATA>::result_set_t result_set_t;
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
@@ -70,9 +70,14 @@ AsyncResult ParallelFor<TDATA>::then(typename detail::ParallelCollectTask<TDATA>
 
     for(size_t idx = 0; idx < mNbTimes; ++idx)
     {
-        auto op = std::bind(mOp, idx, std::placeholders::_1);
-        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TDATA>>(mManager, op, idx, terminalTask));
-        mManager->run(mTasks.back());
+        auto callback = [terminalTask, idx](typename detail::IParallelTask<TDATA>::VariantType result)->void
+        {
+            terminalTask->notifyCompletion(idx, std::move(result));
+        };
+        auto op = std::bind(mOp, idx, callback);
+        auto task = std::make_shared<detail::ParallelTask<TDATA>>(mManager, op, terminalTask);
+        mTasks.emplace_back(task);
+        mManager->run(task);
     }
 
     return result;   

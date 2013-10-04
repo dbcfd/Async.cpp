@@ -55,12 +55,11 @@ SeriesTask<TRESULT>::~SeriesTask()
 template<class TRESULT>
 void SeriesTask<TRESULT>::performSpecific()
 {
-    auto thisPtr = shared_from_this();
-    auto callback = [thisPtr, this](typename VariantType result)->void {
-        mNextTask->begin(std::move(result));
-    };
-
-    mGenerateResultFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult), callback);
+    auto nextTask = mNextTask;
+    mGenerateResultFunc(nullptr, boost::apply_visitor(ValueVisitor<TRESULT>(), mPreviousResult), [nextTask](typename VariantType result)->void 
+    {
+        nextTask->begin(std::move(result));
+    } );
 }
 
 //------------------------------------------------------------------------------

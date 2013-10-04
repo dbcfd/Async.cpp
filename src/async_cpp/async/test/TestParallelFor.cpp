@@ -16,7 +16,7 @@ TEST(PARALLEL_FOR_TEST, BASIC)
     typedef std::chrono::high_resolution_clock::time_point data_t;
     typedef std::shared_ptr<data_t> data_ptr_t;
     auto manager(std::make_shared<tasks::AsioManager>(5));
-    std::vector<data_ptr_t> times(6);
+    std::vector<data_ptr_t> times(5);
 
     auto func = [&times](size_t index, ParallelFor<data_t>::callback_t cb)->void {
         auto now = std::chrono::high_resolution_clock::now();
@@ -29,6 +29,11 @@ TEST(PARALLEL_FOR_TEST, BASIC)
     auto start = std::chrono::high_resolution_clock::now();
     auto result = parallel.then([&times, maxDur, this](std::exception_ptr ex, std::vector<data_t>&& results)->void {
         if(ex) std::rethrow_exception(ex);
+
+        if(results.size() != times.size())
+        {
+            throw(std::runtime_error("Callback invoked before operations finished"));
+        }
 
         for(size_t i = 0; i < results.size(); ++i)
         {

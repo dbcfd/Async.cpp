@@ -50,6 +50,47 @@ TEST(SERIES_TEST, BASIC)
     manager->shutdown();
 }
 
+TEST(SERIES_TEST, DOUBLE_CALLBACK)
+{
+    auto manager(std::make_shared<tasks::AsioManager>(5));
+
+    Series<size_t>::operation_t opsArray[] = {
+        [](std::exception_ptr, size_t*, Series<size_t>::callback_t cb)-> void {
+            cb(0);
+        },
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
+            cb(*prev + 1);
+        },
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
+        },
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
+            cb(*prev + 1);
+        },
+        [](std::exception_ptr ex, size_t* prev, Series<size_t>::callback_t cb)-> void {
+            if(ex) std::rethrow_exception(ex);
+            cb(*prev + 1);
+        }
+    };
+
+    AsyncResult result;
+    ASSERT_NO_THROW(result = Series<size_t>(manager, opsArray, 5).then(
+        [](std::exception_ptr ex, size_t* prev)-> void {
+            if(ex) std::rethrow_exception(ex);
+            auto wasSuccessful = (4 == *prev);
+            if(!wasSuccessful) throw(std::runtime_error("Series failed"));
+        } ) );
+
+    EXPECT_NO_THROW(result.check());
+
+    manager->shutdown();
+}
+
 TEST(SERIES_TEST, INTERRUPT)
 {
     auto manager(std::make_shared<tasks::AsioManager>(5));

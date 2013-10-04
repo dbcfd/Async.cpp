@@ -12,9 +12,9 @@ template<class TDATA, class TRESULT=TDATA>
 class ParallelForEach {
 public:
     typedef typename std::function<void(TDATA&, typename detail::ParallelTask<TRESULT>::callback_t)> operation_t;
-    typedef typename typename detail::ParallelTask<TRESULT>::callback_t callback_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::then_t then_t;
-    typedef typename typename detail::ParallelCollectTask<TRESULT>::result_set_t result_set_t;
+    typedef typename detail::ParallelTask<TRESULT>::callback_t callback_t;
+    typedef typename detail::ParallelCollectTask<TRESULT>::then_t then_t;
+    typedef typename detail::ParallelCollectTask<TRESULT>::result_set_t result_set_t;
     /**
      * Create a parallel task set using a manager and a set of tasks.
      * @param manager Manager to run tasks against
@@ -67,7 +67,12 @@ AsyncResult ParallelForEach<TDATA, TRESULT>::then(typename detail::ParallelColle
 
     for(size_t i = 0; i < mData.size(); ++i)
     {
-        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TRESULT>>(mManager, std::bind(mOp, std::move(mData[i]), std::placeholders::_1), i, terminalTask));
+        auto callback = [terminalTask, i](typename detail::IParallelTask<TRESULT>::VariantType result)->void
+        {
+            terminalTask->notifyCompletion(i, std::move(result));
+        };
+        auto op = std::bind(mOp, std::move(mData[i]), callback);
+        mTasks.emplace_back(std::make_shared<detail::ParallelTask<TRESULT>>(mManager, op, terminalTask));
         mManager->run(mTasks.back());
     }
     mData.clear();

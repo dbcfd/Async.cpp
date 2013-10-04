@@ -44,9 +44,9 @@ protected:
     virtual void notifyCancel() final;
 
 private:
-    size_t mTasksOutstanding;
     std::mutex mResultsMutex;
     std::map<size_t, typename VariantType> mResults;
+    size_t mResultsRequired;
     result_set_t mPreparedResults;
     std::packaged_task<bool(std::exception_ptr, result_set_t&&)> mTask;
     std::atomic_bool mValid;
@@ -59,15 +59,23 @@ ParallelCollectTask<TRESULT>::ParallelCollectTask(std::weak_ptr<tasks::IManager>
         const size_t tasksOutstanding,
         typename then_t thenFunction)
     : IParallelTask(mgr),
-      mTasksOutstanding(tasksOutstanding)
+      mResultsRequired(tasksOutstanding)
 {
     mValid.store(true);
-    mPreparedResults.reserve(mTasksOutstanding);
+    mPreparedResults.reserve(mResultsRequired);
     mTask = std::packaged_task<bool(std::exception_ptr, result_set_t&&)>([thenFunction](std::exception_ptr ex, result_set_t&& results)->bool
     {
-        if(ex) std::rethrow_exception(ex);
+        try
+        {
+            thenFunction(ex, std::move(results));
+        }
+        catch(...)
+        {
+            ex = std::current_exception();
+        }
 
-        thenFunction(nullptr, std::move(results));
+
+        if(ex) std::rethrow_exception(ex);
 
         return true;
     } );
@@ -77,7 +85,7 @@ ParallelCollectTask<TRESULT>::ParallelCollectTask(std::weak_ptr<tasks::IManager>
 template<class TRESULT>
 ParallelCollectTask<TRESULT>::ParallelCollectTask(ParallelCollectTask&& other)
     : IParallelTask(std::move(other)),
-      mTasksOutstanding(std::move(other.mTasksOutstanding)),
+      mResultsRequired(std::move(other.mResultsRequired)),
       mResults(std::move(other.mResults)),
       mPreparedResults(std::move(other.mPreparedResults)),
       mTask(std::move(other.mTask))
@@ -146,11 +154,14 @@ void ParallelCollectTask<TRESULT>::notifyCompletion(const size_t taskIndex, type
     if(mValid)
     {
         std::lock_guard<std::mutex> lock(mResultsMutex);
-        mResults.insert(std::make_pair(taskIndex, std::move(result)));
-        --mTasksOutstanding;
-        if(0 == mTasksOutstanding)
+        //prevent double callbacks
+        if(mResults.find(taskIndex) == mResults.end())
         {
-            mManager.lock()->run(shared_from_this());
+            mResults.emplace(taskIndex, std::move(result));
+            if(mResults.size() == mResultsRequired)
+            {
+                mManager.lock()->run(shared_from_this());
+            }
         }
     }
 }

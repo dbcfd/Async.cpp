@@ -36,7 +36,14 @@ SeriesCollectTask<TRESULT>::SeriesCollectTask(std::weak_ptr<tasks::IManager> mgr
 {
     mTask = std::packaged_task<bool(std::exception_ptr, typename VariantType&&)>([thenFunc](std::exception_ptr ex, typename VariantType&& previous)->bool 
     {
-        thenFunc(ex, boost::apply_visitor(ValueVisitor<TRESULT>(), previous));
+        try
+        {
+            thenFunc(ex, boost::apply_visitor(ValueVisitor<TRESULT>(), previous));
+        }
+        catch(...)
+        {
+            ex = std::current_exception();
+        }
         if(ex) std::rethrow_exception(ex);
         return true;
     } );
